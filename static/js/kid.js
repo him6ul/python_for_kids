@@ -40,33 +40,54 @@ export function renderTopbar() {
 export async function viewWelcome(app) {
   setContext("_home", "welcome");
   const learners = await api("/api/learners");
+  const points = [
+    ["12 small projects", "A chatbot, games, turtle art, a secret-code machine and your own game."],
+    ["One step at a time", "Short missions with a tiny lesson, a task, and hints when you need them."],
+    ["See yourself grow", "Skills, badges and streaks track your progress through the 6 weeks."],
+  ];
   app.innerHTML = `<div class="welcome">
-    <div class="hero">🐍</div>
-    <h1>Welcome to PyQuest!</h1>
-    <p class="muted" style="font-size:1.15rem">A 6-week adventure where you learn Python by building games, art, and secret-agent gadgets.</p>
-    ${learners.length ? `<h2 style="margin-top:30px">Who's coding today?</h2><div class="learners">${learners.map((l) => `
-      <div class="learner-card" data-id="${l.id}"><div class="av">${l.avatar}</div><h3>${esc(l.name)}</h3>
-      <div class="muted">Level ${l.level.level} · ${esc(l.level.title)}</div></div>`).join("")}</div>` : ""}
-    <div class="card" style="max-width:560px;margin:26px auto;text-align:center">
-      <h2>${learners.length ? "New coder" : "Create your coder"}</h2>
-      <input id="nm" placeholder="Your name" maxlength="40" style="width:70%;font-size:1.2rem;text-align:center">
-      <p class="muted" style="margin:14px 0 4px">Pick your avatar</p>
-      <div class="avatar-grid">${AVATARS.map((a, i) => `<button data-av="${a}" class="${i ? "" : "sel"}">${a}</button>`).join("")}</div>
-      <p class="muted" style="margin:10px 0 6px">Pick a look</p>
-      <div class="theme-grid">${Object.entries(THEMES).map(([k, [n, c, ink]], i) => `<button data-th="${k}" style="background:${c};color:${ink}" class="${i ? "" : "sel"}">${n}</button>`).join("")}</div>
-      <p><button class="btn primary big" id="go" style="margin-top:18px">Start my quest 🚀</button></p>
-    </div></div>`;
+    <section class="welcome-intro">
+      <div class="brandmark" aria-hidden="true">🐍</div>
+      <h1>PyQuest</h1>
+      <p class="lead">Learn Python in six weeks by building things you actually want to use.</p>
+      <ul class="welcome-points">${points.map(([t, d], i) => `<li><span class="n">0${i + 1}</span><div><b>${t}</b><span class="muted">${d}</span></div></li>`).join("")}</ul>
+      <a class="faint parent-link" href="#/parent">Parent Zone →</a>
+    </section>
+    <section class="card welcome-panel">
+      ${learners.length ? `<h2>Who's coding today?</h2>
+        <div class="learner-list">${learners.map((l) => `<button class="learner-row" data-id="${l.id}">
+          <span class="av">${l.avatar}</span><span class="who"><b>${esc(l.name)}</b><span class="faint">Level ${l.level.level} · ${esc(l.level.title)}</span></span>
+          <span class="go" aria-hidden="true">→</span></button>`).join("")}</div>
+        <button class="btn ghost small" id="newcoder">+ New coder</button>` : ""}
+      <div class="new-coder ${learners.length ? "hidden" : ""}">
+        <h2>${learners.length ? "New coder" : "Create your coder"}</h2>
+        <label class="field"><span>Name</span><input id="nm" placeholder="Your name" maxlength="40" autocomplete="off"></label>
+        <div class="field"><span>Avatar</span>
+          <div class="avatar-grid">${AVATARS.map((a, i) => `<button data-av="${a}" class="${i ? "" : "sel"}" aria-label="Avatar ${a}">${a}</button>`).join("")}</div></div>
+        <div class="field"><span>Look</span>
+          <div class="theme-grid">${Object.entries(THEMES).map(([k, [n, c, ink]], i) => `<button data-th="${k}" class="${i ? "" : "sel"}">
+            <i style="background:${c};border-color:${ink}33"></i>${n}</button>`).join("")}</div></div>
+        <button class="btn primary" id="go">Start my quest</button>
+      </div>
+    </section></div>`;
   let av = AVATARS[0], th = "space";
   app.querySelectorAll("[data-av]").forEach((b) => b.onclick = () => { av = b.dataset.av; app.querySelectorAll("[data-av]").forEach((x) => x.classList.toggle("sel", x === b)); sfx("click"); });
   app.querySelectorAll("[data-th]").forEach((b) => b.onclick = () => { th = b.dataset.th; document.documentElement.dataset.theme = th; app.querySelectorAll("[data-th]").forEach((x) => x.classList.toggle("sel", x === b)); });
-  app.querySelectorAll(".learner-card").forEach((c) => c.onclick = () => pickLearner(learners.find((l) => l.id == c.dataset.id)));
-  app.querySelector("#go").onclick = async () => {
+  app.querySelectorAll(".learner-row").forEach((c) => c.onclick = () => pickLearner(learners.find((l) => l.id == c.dataset.id)));
+  app.querySelector("#newcoder")?.addEventListener("click", (e) => {
+    e.currentTarget.classList.add("hidden");
+    app.querySelector(".new-coder").classList.remove("hidden");
+    app.querySelector("#nm").focus();
+  });
+  const go = async () => {
     const name = app.querySelector("#nm").value.trim();
-    if (!name) { app.querySelector("#nm").focus(); app.querySelector("#nm").classList.add("shake"); return; }
+    if (!name) { const nm = app.querySelector("#nm"); nm.focus(); nm.classList.remove("shake"); void nm.offsetWidth; nm.classList.add("shake"); return; }
     const l = await api("/api/learners", { method: "POST", body: { name, avatar: av, theme: th } });
-    celebrate(1.5);
+    celebrate(1);
     pickLearner(l);
   };
+  app.querySelector("#go").onclick = go;
+  app.querySelector("#nm").addEventListener("keydown", (e) => e.key === "Enter" && go());
 }
 
 function pickLearner(l) {
