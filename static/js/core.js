@@ -61,11 +61,11 @@ export function modal(html, { wide = false, onClose } = {}) {
 }
 
 export function celebrate(power = 1) {
+  // A small, soft burst in muted colours — celebratory without being loud.
   if (!window.confetti) return;
-  const n = Math.round(120 * power);
-  confetti({ particleCount: n, spread: 80, origin: { y: 0.7 } });
-  if (power > 1) setTimeout(() => confetti({ particleCount: n, angle: 60, spread: 70, origin: { x: 0 } }), 250);
-  if (power > 1) setTimeout(() => confetti({ particleCount: n, angle: 120, spread: 70, origin: { x: 1 } }), 400);
+  const colors = ["#7f9fd8", "#86b3a4", "#c9a45c", "#b9a3d6", "#d9d4c7"];
+  confetti({ particleCount: Math.round(40 * power), spread: 60, startVelocity: 28, gravity: 1.1, scalar: 0.8, ticks: 140,
+    origin: { y: 0.75 }, colors, disableForReducedMotion: true });
 }
 
 // ---------- sound effects (tiny WebAudio synth, no files) ----------

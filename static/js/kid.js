@@ -3,7 +3,8 @@ import { api, celebrate, chartDefaults, el, esc, fmtMin, makeChart, modal, serie
 import { createWorkspace, rewards, showBadge } from "./workspace.js";
 
 const AVATARS = ["🦊", "🐉", "🤖", "🦖", "🐙", "🦄", "🐼", "🦁", "🐸", "👾", "🚀", "🧙", "🥷", "🦈", "🐧", "🦅"];
-const THEMES = { space: ["🌌 Space", "#2a2470"], jungle: ["🌴 Jungle", "#1b5e36"], ocean: ["🌊 Ocean", "#0d4a80"], lava: ["🌋 Lava", "#8a2a1a"] };
+// keys are stored per learner; labels/swatches are what the learner sees
+const THEMES = { space: ["Midnight", "#1f2229", "#e4e6eb"], jungle: ["Forest", "#1e2420", "#e3e8e3"], ocean: ["Harbor", "#1d2429", "#e2e8eb"], lava: ["Paper", "#fbfaf8", "#2b2d31"] };
 let currentWs = null;
 
 export function disposeWorkspace() {
@@ -51,8 +52,8 @@ export async function viewWelcome(app) {
       <input id="nm" placeholder="Your name" maxlength="40" style="width:70%;font-size:1.2rem;text-align:center">
       <p class="muted" style="margin:14px 0 4px">Pick your avatar</p>
       <div class="avatar-grid">${AVATARS.map((a, i) => `<button data-av="${a}" class="${i ? "" : "sel"}">${a}</button>`).join("")}</div>
-      <p class="muted" style="margin:10px 0 6px">Pick your world</p>
-      <div class="theme-grid">${Object.entries(THEMES).map(([k, [n, c]], i) => `<button data-th="${k}" style="background:${c}" class="${i ? "" : "sel"}">${n}</button>`).join("")}</div>
+      <p class="muted" style="margin:10px 0 6px">Pick a look</p>
+      <div class="theme-grid">${Object.entries(THEMES).map(([k, [n, c, ink]], i) => `<button data-th="${k}" style="background:${c};color:${ink}" class="${i ? "" : "sel"}">${n}</button>`).join("")}</div>
       <p><button class="btn primary big" id="go" style="margin-top:18px">Start my quest 🚀</button></p>
     </div></div>`;
   let av = AVATARS[0], th = "space";
