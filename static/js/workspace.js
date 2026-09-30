@@ -12,8 +12,8 @@ export function createWorkspace(host, { project, step, mode = "step", checkable 
         ${checkable ? `<button class="btn check" data-act="check">Check my code</button>` : ""}
         ${extraButtons}
         <span class="spacer"></span>
-        ${state.tutor?.available ? `<button class="btn small tutor-btn" data-act="tutor" title="Ask Pixel, your AI tutor">🤖 Ask Pixel</button>
-        <button class="btn small ghost" data-act="review" title="Get feedback on your code">🔍 Review</button>` : ""}
+        ${state.tutor?.available ? `<button class="btn small ghost" data-act="tutor" title="Ask Pixel, your AI tutor">Ask Pixel</button>
+        <button class="btn small ghost" data-act="review" title="Get feedback on your code">Review code</button>` : ""}
         <button class="btn ghost small" data-act="font" title="Bigger / smaller text">A±</button>
         <button class="btn ghost small" data-act="reset" title="Start this step over">↺ Reset</button>
       </div>
@@ -112,7 +112,7 @@ export function createWorkspace(host, { project, step, mode = "step", checkable 
         <div>${esc(m.friendly)}</div>
         ${m.code_line ? `<div class="raw">line ${m.line}: ${esc(m.code_line.trim())}</div>` : ""}
         <div class="raw">${esc(m.text || m.type)}</div>
-        ${tutor ? `<button class="btn small tutor-btn" data-act="explain" style="margin-top:8px">🤖 Ask Pixel about this bug</button>` : ""}</div></div>`);
+        ${tutor ? `<button class="btn small ghost" data-act="explain" style="margin-top:8px">Ask Pixel about this bug</button>` : ""}</div></div>`);
     consoleEl.appendChild(card);
     consoleEl.scrollTop = consoleEl.scrollHeight;
     if (m.line) {
@@ -185,7 +185,7 @@ export function createWorkspace(host, { project, step, mode = "step", checkable 
         box.innerHTML = `<div class="check-result fail">🤔 Not yet! ${esc(r.message)}
           ${r.output ? `<details><summary class="muted">What your program printed during the test</summary><pre>${esc(r.output)}</pre></details>` : ""}
           <div class="muted" style="font-weight:600;margin-top:4px">Attempt ${r.attempts}. ${r.attempts >= 3 ? "Stuck? Open a hint — that's what they're for." : "You're close — tweak and try again!"}</div>
-          ${tutor && r.attempts >= 2 ? `<button class="btn small tutor-btn" data-askcheck style="margin-top:6px">🤖 Ask Pixel why</button>` : ""}</div>`;
+          ${tutor && r.attempts >= 2 ? `<button class="btn small ghost" data-askcheck style="margin-top:6px">Ask Pixel why</button>` : ""}</div>`;
         box.querySelector("[data-askcheck]")?.addEventListener("click", () => tutor.ask(`The checker says: "${r.message}". What am I missing? Just give me a clue!`));
         box.firstElementChild.classList.add("shake");
       }

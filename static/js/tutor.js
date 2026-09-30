@@ -17,28 +17,30 @@ export async function refreshTutorStatus() {
 }
 
 const CHIPS = [
-  ["😵 I'm stuck", "I'm stuck on this mission. Can you give me a clue?"],
-  ["🐛 Why doesn't it work?", "My code doesn't do what I want. Can you help me find the problem?"],
-  ["🤔 Explain the lesson", "Can you explain the idea from this lesson in a different way?"],
-  ["✨ Make it cooler", "My code works! How could I make it even cooler?"],
+  ["I'm stuck", "I'm stuck on this mission. Can you give me a clue?"],
+  ["Why doesn't it work?", "My code doesn't do what I want. Can you help me find the problem?"],
+  ["Explain the lesson", "Can you explain the idea from this lesson in a different way?"],
+  ["Make it cooler", "My code works! How could I make it even cooler?"],
 ];
 
 export function createTutor({ project, step, getCode, getRun, cm }) {
   document.querySelectorAll("aside.tutor").forEach((x) => x.remove());   // only ever one Pixel on screen
   const panel = el(`<aside class="tutor hidden" aria-label="Pixel the AI tutor">
-    <header><span class="pix">🤖</span><div><b>Pixel</b><div class="faint" data-usage></div></div><span class="spacer"></span>
-      <button class="iconbtn" data-close title="Close">✕</button></header>
+    <header><span class="pix" aria-hidden="true">🤖</span><div class="who"><b>Pixel</b><span class="faint">AI tutor · <span data-usage></span></span></div>
+      <button class="tutor-close" data-close title="Close" aria-label="Close">✕</button></header>
     <div class="tutor-log" aria-live="polite"></div>
-    <div class="tutor-chips">${CHIPS.map(([l, q]) => `<button class="btn small ghost" data-q="${esc(q)}">${l}</button>`).join("")}</div>
-    <form class="tutor-form"><textarea rows="2" placeholder="Ask Pixel anything about your code…" maxlength="1000"></textarea>
-      <button class="btn check" type="submit">Send</button></form>
-    <div class="faint tutor-note">Pixel gives clues, not answers. Your parent can read these chats.</div>
+    <div class="tutor-bottom">
+      <div class="tutor-chips">${CHIPS.map(([l, q]) => `<button class="chip-btn" data-q="${esc(q)}">${l}</button>`).join("")}</div>
+      <form class="tutor-form"><textarea rows="1" placeholder="Ask about your code…" maxlength="1000"></textarea>
+        <button class="btn primary small" type="submit">Send</button></form>
+      <div class="faint tutor-note">Pixel gives clues, not answers. Your parent can read these chats.</div>
+    </div>
   </aside>`);
   document.body.appendChild(panel);
   const log = panel.querySelector(".tutor-log"), ta = panel.querySelector("textarea");
   let busy = false, marks = [];
 
-  const usage = (used, limit) => { panel.querySelector("[data-usage]").textContent = `${used}/${limit} questions today`; };
+  const usage = (used, limit) => { panel.querySelector("[data-usage]").textContent = `${used} of ${limit} today`; };
   if (state.tutor) usage(state.tutor.used_today ?? 0, state.tutor.daily_limit);
 
   function bubble(role, html, cls = "") {
@@ -52,12 +54,13 @@ export function createTutor({ project, step, getCode, getRun, cm }) {
   }
 
   function reviewCard(r) {
-    const kindIcon = { bug: "🐛", readability: "📖", idea: "💡" };
-    const html = `<div class="review"><div class="stars">${"⭐".repeat(r.stars)}${"☆".repeat(3 - r.stars)}</div>
-      <p><b>👍 ${esc(r.praise)}</b></p><p>${fmt(r.summary)}</p>
-      ${r.suggestions.length ? `<ul>${r.suggestions.map((s) => `<li ${s.line ? `data-line="${s.line}" class="jump" title="Show line ${s.line}"` : ""}>
-        ${kindIcon[s.kind] || "•"} ${s.line ? `<b>Line ${s.line}:</b> ` : ""}${fmt(s.tip)}</li>`).join("")}</ul>` : ""}
-      <p class="challenge">🎯 <b>Challenge:</b> ${fmt(r.challenge)}</p></div>`;
+    const kind = { bug: "Bug", readability: "Readability", idea: "Idea" };
+    const html = `<div class="review">
+      <div class="review-head"><span class="label">Code review</span><span class="rating" title="${r.stars} of 3">${[1, 2, 3].map((i) => `<i class="${i <= r.stars ? "on" : ""}"></i>`).join("")}</span></div>
+      <p class="praise">${fmt(r.praise)}</p><p>${fmt(r.summary)}</p>
+      ${r.suggestions.length ? `<ul class="tips">${r.suggestions.map((s) => `<li ${s.line ? `data-line="${s.line}" class="jump" title="Show line ${s.line}"` : ""}>
+        <span class="tag ${s.kind === "bug" ? "new" : ""}">${kind[s.kind] || "Tip"}${s.line ? ` · line ${s.line}` : ""}</span><div>${fmt(s.tip)}</div></li>`).join("")}</ul>` : ""}
+      <div class="challenge"><span class="label">Try next</span>${fmt(r.challenge)}</div></div>`;
     const b = bubble("tutor", html);
     b.querySelectorAll("[data-line]").forEach((li) => li.onclick = () => {
       const n = +li.dataset.line - 1;
@@ -83,11 +86,11 @@ export function createTutor({ project, step, getCode, getRun, cm }) {
   async function fetchHistory() {
     const rows = await api(`/api/learners/${state.learner.id}/tutor/history?project=${encodeURIComponent(project)}&step=${encodeURIComponent(step)}`);
     if (!rows.length) {
-      bubble("tutor", `Hi! I'm <b>Pixel</b> 🤖. Stuck, confused, or curious? Ask me anything about your code — I'll give you clues so <i>you</i> can crack it.`);
+      bubble("tutor", `Hi, I'm <b>Pixel</b>. Stuck, confused or curious? Ask me about your code and I'll give you clues so <i>you</i> can crack it.`);
       return;
     }
     for (const r of rows) {
-      if (r.role === "kid") bubble("kid", fmt(r.text));
+      if (r.role === "kid") bubble("kid", fmt(r.text.replace(/^🔍\s*/, "")));
       else if (r.kind === "review" && r.status === "ok" && r.meta) reviewCard(r.meta);
       else bubble("tutor", fmt(r.text), r.status !== "ok" ? "warn" : "");
     }
@@ -117,7 +120,7 @@ export function createTutor({ project, step, getCode, getRun, cm }) {
     if (busy) return;
     busy = true;
     await open();
-    bubble("kid", "🔍 Review my code");
+    bubble("kid", "Review my code");
     const t = typing();
     try {
       const r = await api(`/api/learners/${state.learner.id}/tutor/review`, {
@@ -141,7 +144,8 @@ export function createTutor({ project, step, getCode, getRun, cm }) {
 
   panel.querySelector("[data-close]").onclick = close;
   panel.querySelectorAll("[data-q]").forEach((b) => b.onclick = () => ask(b.dataset.q));
-  panel.querySelector("form").onsubmit = (e) => { e.preventDefault(); const q = ta.value; ta.value = ""; ask(q); };
+  panel.querySelector("form").onsubmit = (e) => { e.preventDefault(); const q = ta.value; ta.value = ""; ta.style.height = "auto"; ask(q); };
+  ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; });
   ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); panel.querySelector("form").requestSubmit(); } });
 
   return {
