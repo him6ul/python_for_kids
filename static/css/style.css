@@ -586,8 +586,20 @@ table.t td.num, table.t th.num { text-align: right; font-variant-numeric: tabula
 .note b { display: block; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .82rem; color: var(--p-text2); }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
-.pinbox { max-width: 360px; margin: 60px auto; text-align: center; }
-.pinbox input { font-size: 1.4rem; text-align: center; letter-spacing: .4em; width: 200px; }
+.pin-page { display: grid; place-items: start center; padding-top: 12vh; }
+.pinbox { width: 100%; max-width: 380px; padding: 28px; }
+.pin-icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 1.2rem;
+  background: var(--p-surface2); border: 1px solid var(--p-line); margin-bottom: 16px; }
+.pinbox h1 { font-size: 1.35rem; margin: 4px 0 6px; }
+.pinbox > p.muted { margin: 0 0 20px; font-size: .9rem; line-height: 1.55; }
+.pin-field { display: grid; gap: 6px; margin-bottom: 12px; }
+.pin-field span { font-size: .8rem; font-weight: 500; color: var(--p-text2); }
+.pin-field input { width: 100%; font: 500 1.15rem var(--font-code); letter-spacing: .3em; padding: 10px 12px; }
+.pin-field input::placeholder { color: var(--p-muted); letter-spacing: .2em; }
+.pin-error { min-height: 1.2em; margin: 0 0 10px; font-size: .84rem; color: var(--p-bad); }
+.pin-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 18px; padding-top: 14px;
+  border-top: 1px solid var(--p-line); font-size: .8rem; }
+.pin-foot a { text-decoration: none; }
 .health-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--p-good); margin-right: 6px; vertical-align: 1px; }
 .codecmp { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .codecmp pre { max-height: 420px; font-size: .8rem; }

@@ -34,17 +34,36 @@ export async function viewParent(app, tab = "overview", arg) {
 }
 
 function pinGate(app, pinSet, tab) {
-  app.innerHTML = `<div class="parent"><div class="pinbox card"><h2>👪 Parent Zone</h2>
-    <p class="muted">${pinSet ? "Enter your parent PIN." : "Create a parent PIN (4+ digits) to protect the dashboard, audit log and data tools."}</p>
-    <input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12"><p><button class="btn primary" id="go">${pinSet ? "Unlock" : "Set PIN"}</button></p>
-    <p><a href="#/home">← Back</a></p></div></div>`;
-  const go = async () => {
-    try { await api("/api/parent/login", { method: "POST", body: { pin: app.querySelector("#pin").value } }); viewParent(app, tab); }
-    catch (e) { toast(esc(e.message)); app.querySelector("#pin").value = ""; }
+  const field = (id, label, auto) => `<label class="pin-field"><span>${label}</span>
+    <input id="${id}" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="${auto}" maxlength="12" placeholder="••••"></label>`;
+  app.innerHTML = `<div class="parent pin-page"><section class="card pinbox">
+    <div class="pin-icon" aria-hidden="true">🔒</div>
+    <div class="eyebrow">Parent Zone</div>
+    <h1>${pinSet ? "Enter your PIN" : "Create a parent PIN"}</h1>
+    <p class="muted">${pinSet ? "Unlock progress, coaching notes, the audit log and data tools."
+                              : "Choose a PIN of 4 or more digits. It protects the dashboard, audit log and data tools on this computer."}</p>
+    <form id="pinform" novalidate>
+      ${field("pin", pinSet ? "PIN" : "New PIN", pinSet ? "current-password" : "new-password")}
+      ${pinSet ? "" : field("pin2", "Confirm PIN", "new-password")}
+      <p class="pin-error" role="alert" aria-live="polite"></p>
+      <button class="btn primary block" type="submit">${pinSet ? "Unlock" : "Set PIN and continue"}</button>
+    </form>
+    <div class="pin-foot"><a href="#/home">← Back to PyQuest</a><span class="faint">Stored only as a secure hash</span></div>
+  </section></div>`;
+  const $ = (q) => app.querySelector(q);
+  const err = (m) => { $(".pin-error").textContent = m; if (m) { $("#pin").select(); $(".pinbox").classList.remove("shake"); void $(".pinbox").offsetWidth; $(".pinbox").classList.add("shake"); } };
+  app.querySelectorAll(".pin-field input").forEach((i) => i.addEventListener("input", () => { i.value = i.value.replace(/\D/g, ""); err(""); }));
+  $("#pinform").onsubmit = async (e) => {
+    e.preventDefault();
+    const pin = $("#pin").value;
+    if (pin.length < 4) return err("Use at least 4 digits.");
+    if (!pinSet && pin !== $("#pin2").value) return err("The two PINs don't match.");
+    const btn = $("#pinform button"); btn.disabled = true;
+    try { await api("/api/parent/login", { method: "POST", body: { pin } }); viewParent(app, tab); }
+    catch (ex) { err(ex.status === 403 ? "That PIN isn't right. Try again." : ex.message); $("#pin").value = ""; if ($("#pin2")) $("#pin2").value = ""; }
+    finally { btn.disabled = false; }
   };
-  app.querySelector("#go").onclick = go;
-  app.querySelector("#pin").addEventListener("keydown", (e) => e.key === "Enter" && go());
-  app.querySelector("#pin").focus();
+  $("#pin").focus();
 }
 
 const pct = (v) => (v === null || v === undefined ? "—" : `${Math.round(v * 100)}%`);
