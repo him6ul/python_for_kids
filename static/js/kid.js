@@ -473,13 +473,31 @@ export async function viewPractice(app, id) {
   list.forEach((p) => (byConcept[p.concept] = byConcept[p.concept] || []).push(p));
   const conceptWeek = {};
   state.curriculum.projects.forEach((p) => p.concepts.forEach((c) => { conceptWeek[c] = Math.min(conceptWeek[c] || 99, p.week); }));
-  app.innerHTML = `<h1>🗡️ Side Quests</h1><p class="muted">Quick challenges to sharpen one skill. Your guide marks the ones that will help you most with ⭐.</p>
-    <div class="grid g3">${Object.entries(byConcept).sort((a, b) => (conceptWeek[a[0]] || 9) - (conceptWeek[b[0]] || 9)).map(([c, items]) => {
-      const locked = (conceptWeek[c] || 1) > learnedWeek;
-      return `<div class="card ${locked ? "faint" : ""}"><h3>${esc(state.curriculum.concepts[c])} ${locked ? "🔒" : ""}</h3>
-      ${locked ? `<p class="muted">Unlocks in week ${conceptWeek[c]}</p>` : `<div class="steps">${items.sort((a, b) => a.difficulty - b.difficulty).map((p) => `
-        <a class="step-row ${isDone("_practice", p.id) ? "done" : ""}" href="#/practice/${p.id}"><span class="num">${isDone("_practice", p.id) ? "✓" : "⭐".repeat(p.difficulty).length}</span>
-        <b style="flex:1">${esc(p.title)} ${rec.has(p.id) ? "⭐" : ""}</b><span class="pill">${"⭐".repeat(p.difficulty)}</span></a>`).join("")}</div>`}</div>`;
+  const DIFF = ["", "Easy", "Medium", "Tricky"];
+  const doneCount = list.filter((p) => isDone("_practice", p.id)).length;
+  const weeks = {};
+  Object.entries(byConcept).forEach(([c, items]) => { (weeks[conceptWeek[c] || 1] = weeks[conceptWeek[c] || 1] || []).push([c, items]); });
+  const recItems = list.filter((p) => rec.has(p.id));
+  app.innerHTML = `<div class="page">
+    <header class="page-head plain"><div><div class="eyebrow">Practice</div><h1>Side Quests</h1>
+      <p class="muted">Short challenges that sharpen one skill at a time. ${doneCount} of ${list.length} cleared.</p></div></header>
+    ${recItems.length ? `<section class="card side-callout"><div class="sec-head"><h3>Recommended for you</h3><span class="faint">Picked by your guide</span></div>
+      <div class="row">${recItems.map((p) => `<a class="btn small" href="#/practice/${p.id}">${esc(p.title)}</a>`).join("")}</div></section>` : ""}
+    ${Object.keys(weeks).sort((x, y) => x - y).map((w) => {
+      const locked = +w > learnedWeek;
+      return `<section class="quest-week ${locked ? "locked" : ""}">
+        <div class="sec-head"><h3>Week ${w} · ${WEEK_NAMES[w]}</h3><span class="faint">${locked ? "🔒 Unlocks when you reach this week" : ""}</span></div>
+        ${locked ? "" : `<div class="quest-grid">${weeks[w].map(([c, items]) => {
+          const d = items.filter((p) => isDone("_practice", p.id)).length;
+          return `<article class="card flush"><div class="sec-head"><h3>${esc(state.curriculum.concepts[c])}</h3><span class="faint">${d}/${items.length}</span></div>
+            <div class="steps">${items.sort((x, y) => x.difficulty - y.difficulty).map((p) => {
+              const done = isDone("_practice", p.id);
+              return `<a class="step-row ${done ? "done" : ""}" href="#/practice/${p.id}"><span class="num">${done ? "✓" : ""}</span>
+                <span class="t"><b>${esc(p.title)}</b><span class="faint">${DIFF[p.difficulty] || ""} · +${p.xp} XP</span></span>
+                ${rec.has(p.id) ? `<span class="tag accent">Recommended</span>` : ""}</a>`;
+            }).join("")}</div></article>`;
+        }).join("")}</div>`}
+      </section>`;
     }).join("")}</div>`;
 }
 
@@ -508,24 +526,28 @@ export async function viewPlayground(app) {
 }
 
 // ---------------------------------------------------------------- ideas & remix
+const IDEA_LEVELS = ["Spark", "Builder", "Inventor", "Architect", "Mastermind"];
+
 function ideaMeter(a) {
-  const names = ["⚡ Spark", "🧱 Builder", "💡 Inventor", "🏗️ Architect", "🧠 Mastermind"];
-  return `<div class="idea-meter"><i style="width:${Math.max(4, a.score)}%"></i></div>
-    <div class="idea-levels">${names.map((n, i) => `<span style="${a.level === i + 1 ? "color:var(--accent);font-weight:800" : ""}">${n}</span>`).join("")}</div>
-    <div class="row" style="margin-top:8px">${Object.keys(a.concepts).map((c) => `<span class="pill ${a.new_concepts.includes(c) ? "warn" : "good"}">${esc(state.curriculum.concepts[c])}</span>`).join("")}</div>
-    ${a.tips.map((t) => `<p class="muted" style="margin:.4em 0">💬 ${esc(t)}</p>`).join("")}`;
+  const concepts = Object.keys(a.concepts);
+  return `<div class="meter-head"><span class="label">Idea level</span><b>${IDEA_LEVELS[a.level - 1]}</b><span class="faint">${a.score}/100</span></div>
+    <div class="idea-meter"><i style="width:${Math.max(4, a.score)}%"></i></div>
+    <div class="idea-levels">${IDEA_LEVELS.map((n, i) => `<span class="${a.level === i + 1 ? "on" : ""}">${n}</span>`).join("")}</div>
+    ${concepts.length ? `<div class="tags">${concepts.map((c) => `<span class="tag ${a.new_concepts.includes(c) ? "new" : ""}" title="${a.new_concepts.includes(c) ? "You haven't learned this yet" : "You know this"}">${esc(state.curriculum.concepts[c])}</span>`).join("")}</div>` : ""}
+    ${a.tips.length ? `<ul class="idea-tips">${a.tips.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}`;
 }
 
 function ideaComposer(host, pid, onSaved) {
-  host.innerHTML = `<textarea rows="4" placeholder="Describe your idea… What does it do? What happens when you win or lose? Any surprises?"></textarea>
-    <div data-meter style="margin-top:10px"></div>
-    <div class="row" style="margin-top:10px"><button class="btn primary" data-save>💾 Save idea</button><span class="faint">Ideas earn XP — bigger ideas earn more!</span></div>`;
+  host.innerHTML = `<textarea rows="4" placeholder="What does it do? What happens when you win or lose? Any surprises?"></textarea>
+    <div data-meter class="meter-box"><p class="faint small">Start typing and the idea meter will rate how ambitious your idea is.</p></div>
+    <div class="row"><button class="btn primary" data-save>Save idea</button><span class="faint small">Bigger ideas earn more XP.</span></div>`;
   const ta = host.querySelector("textarea"), meter = host.querySelector("[data-meter]");
+  const blank = meter.innerHTML;
   let t = null;
   ta.addEventListener("input", () => {
     clearTimeout(t);
     t = setTimeout(async () => {
-      if (ta.value.trim().length < 5) { meter.innerHTML = ""; return; }
+      if (ta.value.trim().length < 5) { meter.innerHTML = blank; return; }
       const a = await api(`/api/learners/${state.learner.id}/ideas/analyze`, { method: "POST", body: { text: ta.value } });
       meter.innerHTML = ideaMeter(a);
     }, 350);
@@ -534,9 +556,9 @@ function ideaComposer(host, pid, onSaved) {
     try {
       const r = await api(`/api/learners/${state.learner.id}/ideas`, { method: "POST", body: { text: ta.value, project: pid } });
       sfx("ok");
-      toast(`${r.analysis.level_emoji} ${esc(r.analysis.level_name)}-level idea saved! +${r.xp} XP`);
+      toast(`${esc(r.analysis.level_name)}-level idea saved · +${r.xp} XP`);
       r.badges.forEach(showBadge);
-      ta.value = ""; meter.innerHTML = "";
+      ta.value = ""; meter.innerHTML = blank;
       document.dispatchEvent(new CustomEvent("xp-changed"));
       onSaved && onSaved(r);
     } catch (e) { toast(esc(e.message)); }
@@ -546,12 +568,31 @@ function ideaComposer(host, pid, onSaved) {
 export async function viewIdeas(app) {
   setContext("_ideas", "-");
   const data = await api(`/api/learners/${state.learner.id}/ideas`);
-  app.innerHTML = `<h1>💡 Idea Journal</h1><p class="muted">Every great program starts as an idea. Write yours down — the idea-o-meter shows how ambitious it is.</p>
-    <div class="grid g2"><div class="card"><h3>✍️ New idea</h3><div data-comp></div></div>
-    <div class="card"><h3>📜 Your ideas (${data.ideas.length})</h3><div class="grid">${data.ideas.slice().reverse().map((i) => `<div class="idea">
-      <div class="row"><b>${i.analysis.level_emoji || ""} ${esc(i.analysis.level_name || "")}</b><span class="pill">${i.score}/100</span>
-      ${i.status === "built" ? `<span class="pill good">Built!</span>` : ""}<span class="spacer"></span><span class="faint">${new Date(i.ts * 1000).toLocaleDateString()}</span></div>
-      <p style="margin:.4em 0">${esc(i.text)}</p></div>`).join("") || `<p class="muted">No ideas yet. What would YOU build?</p>`}</div></div></div>`;
+  if (state.isStale?.()) return;
+  const ideas = data.ideas.slice().reverse();
+  const title = (pid) => (pid ? project(pid)?.title : null);
+  app.innerHTML = `<div class="page">
+    <header class="page-head plain"><div><div class="eyebrow">Idea journal</div><h1>Ideas</h1>
+      <p class="muted">Every great program starts as an idea. Write yours down; the meter shows how ambitious it is.</p></div></header>
+    <div class="split">
+      <div class="split-main">
+        <section class="card"><div class="sec-head"><h3>New idea</h3></div><div data-comp></div></section>
+        <section class="card flush"><div class="sec-head"><h3>Your ideas</h3><span class="faint">${ideas.length}</span></div>
+          ${ideas.length ? `<div class="idea-list">${ideas.map((i) => `<article class="idea-row">
+            <div class="idea-meta"><span class="tag accent">${esc(i.analysis.level_name || "")}</span><span class="faint">${i.score}/100</span>
+              ${i.status === "built" ? `<span class="tag">Built</span>` : ""}${title(i.project_id) ? `<span class="faint">· ${esc(title(i.project_id))}</span>` : ""}
+              <span class="spacer"></span><span class="faint">${new Date(i.ts * 1000).toLocaleDateString([], { month: "short", day: "numeric" })}</span></div>
+            <p>${esc(i.text)}</p></article>`).join("")}</div>` : `<p class="empty">No ideas yet. What would you build?</p>`}
+        </section>
+      </div>
+      <aside class="split-side">
+        <section class="card"><div class="sec-head"><h3>Idea levels</h3></div>
+          <ol class="level-list">${IDEA_LEVELS.map((n, i) => `<li><b>${n}</b><span class="faint">${["One simple feature", "A couple of features", "Several features working together", "A bigger system with many parts", "An ambitious, complete game or app"][i]}</span></li>`).join("")}</ol></section>
+        <section class="card"><div class="sec-head"><h3>Idea sparks</h3></div>
+          <ul class="spark-list"><li>What happens when you win? When you lose?</li><li>Could something random make it replayable?</li>
+            <li>Is there a score, lives or a timer?</li><li>Could a friend play against you?</li><li>What's the smallest version you could build first?</li></ul></section>
+      </aside>
+    </div></div>`;
   ideaComposer(app.querySelector("[data-comp]"), null, () => viewIdeas(app));
 }
 

@@ -417,6 +417,32 @@ aside.tutor header .iconbtn { width: 30px; height: 30px; font-size: .9rem; }
 .badge .n { font-size: .76rem; }
 .badge .d { display: none; }
 
+/* ============ Side quests ============ */
+.quest-week { margin-bottom: 22px; }
+.quest-week > .sec-head { margin-bottom: 10px; }
+.quest-week.locked > .sec-head h3 { color: var(--faint); }
+.quest-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.quest-grid .step-row .num:empty { background: transparent; border: 1px solid var(--line); }
+
+/* ============ Ideas ============ */
+.meter-box { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+.meter-box .faint.small { margin: 0; }
+.meter-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.meter-head .label { margin: 0; }
+.idea-levels span.on { color: var(--text); font-weight: 600; }
+.idea-levels { font-size: .72rem; }
+.tag.new { background: color-mix(in srgb, var(--warn) 14%, var(--panel2)); color: var(--warn-ink); }
+.idea-tips { margin: 10px 0 0; padding-left: 18px; font-size: .84rem; color: var(--muted); display: grid; gap: 4px; }
+.idea-list { display: grid; }
+.idea-row { padding: 12px; border-top: 1px solid var(--line); }
+.idea-row:first-child { border-top: 0; }
+.idea-row p { margin: 6px 0 0; line-height: 1.55; }
+.idea-meta { display: flex; align-items: center; gap: 8px; font-size: .8rem; }
+.level-list, .spark-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: .86rem; }
+.level-list li b { display: block; font-weight: 600; }
+.level-list li .faint { font-size: .8rem; }
+.spark-list { color: var(--muted); }
+
 /* ============ Modals, toasts ============ */
 .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(2px); display: grid; place-items: center; z-index: 100; animation: fade .2s; padding: 16px; }
 .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 26px; max-width: 560px; width: 100%; text-align: center; box-shadow: var(--shadow);
