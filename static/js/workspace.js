@@ -7,25 +7,30 @@ export function createWorkspace(host, { project, step, mode = "step", checkable 
   host.innerHTML = `
     <div class="coding">
       <div class="toolbar">
-        <button class="btn run" data-act="run">▶ Run</button>
-        <button class="btn stop hidden" data-act="stop">■ Stop</button>
-        ${checkable ? `<button class="btn check" data-act="check">✔ Check my code</button>` : ""}
+        <button class="btn run" data-act="run">Run</button>
+        <button class="btn stop hidden" data-act="stop">Stop</button>
+        ${checkable ? `<button class="btn check" data-act="check">Check my code</button>` : ""}
         ${extraButtons}
         <span class="spacer"></span>
         ${state.tutor?.available ? `<button class="btn small tutor-btn" data-act="tutor" title="Ask Pixel, your AI tutor">🤖 Ask Pixel</button>
         <button class="btn small ghost" data-act="review" title="Get feedback on your code">🔍 Review</button>` : ""}
-        <span class="saved-ind" data-saved></span>
         <button class="btn ghost small" data-act="font" title="Bigger / smaller text">A±</button>
         <button class="btn ghost small" data-act="reset" title="Start this step over">↺ Reset</button>
       </div>
-      <div class="editor-wrap"></div>
+      <div class="pane editor-pane">
+        <div class="pane-head"><span class="file">main.py</span><span class="spacer"></span><span class="saved-ind" data-saved></span></div>
+        <div class="editor-wrap"></div>
+      </div>
       <div class="output-area no-canvas">
-        <div class="console" aria-live="polite"><span class="sys">Press ▶ Run to start your program. Output shows up here.</span></div>
-        <div class="canvas-wrap hidden">
-          <div class="canvas-tools">
-            <button class="btn small" data-act="skip" title="Finish drawing instantly">⏩</button>
-            <button class="btn small" data-act="save-art" title="Save picture">💾</button>
-          </div>
+        <div class="pane">
+          <div class="pane-head"><span>Output</span></div>
+          <div class="console" aria-live="polite"><span class="sys">Press Run to start your program. Output shows up here.</span></div>
+        </div>
+        <div class="pane canvas-pane hidden">
+          <div class="pane-head"><span>Drawing</span><span class="spacer"></span>
+            <button class="btn ghost xs" data-act="skip" title="Finish drawing instantly">Skip</button>
+            <button class="btn ghost xs" data-act="save-art" title="Save picture">Save</button></div>
+          <div class="canvas-body"><div class="canvas-wrap"></div></div>
         </div>
       </div>
       <div data-result></div>
@@ -42,6 +47,7 @@ export function createWorkspace(host, { project, step, mode = "step", checkable 
   });
   const consoleEl = $(".console");
   const canvasWrap = $(".canvas-wrap");
+  const canvasPane = $(".canvas-pane");
   const turtle = new TurtleCanvas(canvasWrap);
   let ws = null, errorMark = null, fontSize = 15, saveTimer = null, loaded = false;
   let lastRun = null;   // {output, error} of the most recent run, shared with the AI tutor
@@ -130,7 +136,7 @@ export function createWorkspace(host, { project, step, mode = "step", checkable 
     $("[data-result]").innerHTML = "";
     turtle.reset();
     const usesTurtle = /\bimport\s+turtle|\bfrom\s+turtle\b/.test(cm.getValue());
-    canvasWrap.classList.toggle("hidden", !usesTurtle);
+    canvasPane.classList.toggle("hidden", !usesTurtle);
     host.querySelector(".output-area").classList.toggle("no-canvas", !usesTurtle);
     host.querySelector(".coding").classList.toggle("with-canvas", usesTurtle);
     sfx("run");
@@ -144,7 +150,7 @@ export function createWorkspace(host, { project, step, mode = "step", checkable 
       else if (m.t === "err") write(m.d, "err");
       else if (m.t === "input") askInput();
       else if (m.t === "turtle") {
-        if (canvasWrap.classList.contains("hidden")) { canvasWrap.classList.remove("hidden"); host.querySelector(".output-area").classList.remove("no-canvas"); host.querySelector(".coding").classList.add("with-canvas"); }
+        if (canvasPane.classList.contains("hidden")) { canvasPane.classList.remove("hidden"); host.querySelector(".output-area").classList.remove("no-canvas"); host.querySelector(".coding").classList.add("with-canvas"); }
         turtle.push(m.e);
       } else if (m.t === "error") showError(m);
       else if (m.t === "end") {
@@ -166,7 +172,7 @@ export function createWorkspace(host, { project, step, mode = "step", checkable 
     await save();
     const btn = $("[data-act=check]");
     btn.disabled = true;
-    btn.textContent = "🔎 Checking…";
+    btn.textContent = "Checking…";
     try {
       const r = await api(`/api/learners/${state.learner.id}/check`, { method: "POST", body: { project, step, code: cm.getValue() } });
       const box = $("[data-result]");
@@ -188,7 +194,7 @@ export function createWorkspace(host, { project, step, mode = "step", checkable 
       toast("⚠️ " + esc(e.message));
     } finally {
       btn.disabled = false;
-      btn.textContent = "✔ Check my code";
+      btn.textContent = "Check my code";
     }
   }
 

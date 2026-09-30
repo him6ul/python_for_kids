@@ -12,6 +12,7 @@ export function disposeWorkspace() {
 }
 
 const project = (id) => state.curriculum.projects.find((p) => p.id === id);
+const bossTitle = (p) => p.boss.title.replace(/^boss:\s*/i, "");
 const progressOf = (pid, sid) => state.kidState?.progress.find((r) => r.project_id === pid && r.step_id === sid);
 const isDone = (pid, sid) => progressOf(pid, sid)?.status === "done";
 const pstatus = (pid) => state.kidState?.projects.find((p) => p.id === pid);
@@ -192,33 +193,69 @@ export async function viewProject(app, pid) {
   if (!p) { app.innerHTML = "<p>Unknown project</p>"; return; }
   setContext(pid, "-");
   await refreshState();
+  if (state.isStale?.()) return;
   const ps = pstatus(pid);
-  if (!ps.unlocked) { app.innerHTML = `<div class="card"><h2>🔒 Locked</h2><p>Finish the previous project first!</p><a class="btn" href="#/map">Back to map</a></div>`; return; }
-  let prevDone = true;
+  if (!ps.unlocked) {
+    app.innerHTML = `<div class="card empty-state"><div class="pe">🔒</div><h2>This project is locked</h2>
+      <p class="muted">Finish the previous project to unlock it.</p><a class="btn" href="#/map">Back to the map</a></div>`;
+    return;
+  }
+  const concept = (c) => esc(state.curriculum.concepts[c]);
+  let prevDone = true, next = null;
   const stepRows = p.steps.map((s, i) => {
     const done = isDone(pid, s.id);
     const locked = !prevDone;
+    if (!done && !locked && !next) next = s;
     prevDone = done;
-    return `<a class="step-row ${done ? "done" : ""} ${locked ? "locked" : ""}" href="#/code/${pid}/${s.id}">
-      <span class="num">${done ? "✓" : i + 1}</span><div style="flex:1"><b>${esc(s.title)}</b></div>
-      <span class="pill">${s.concepts.map((c) => esc(state.curriculum.concepts[c])).join(" · ")}</span><span class="pill warn">+${s.xp} XP</span></a>`;
+    return `<a class="step-row ${done ? "done" : ""} ${locked ? "locked" : ""} ${next === s ? "next" : ""}" ${locked ? "" : `href="#/code/${pid}/${s.id}"`}>
+      <span class="num">${done ? "✓" : i + 1}</span>
+      <span class="t"><b>${esc(s.title)}</b><span class="faint">${s.concepts.map(concept).join(" · ")}</span></span>
+      <span class="xp">${locked ? "Locked" : `+${s.xp} XP`}</span></a>`;
   }).join("");
-  app.innerHTML = `
-    <div class="crumbs muted"><a href="#/map">Quest Map</a> › Week ${p.week}</div>
-    <div class="proj-hero"><div class="pe">${p.emoji}</div><div><h1>${esc(p.title)}</h1><p class="muted" style="font-size:1.1rem;max-width:760px">${esc(p.story)}</p>
-      <div class="row"><span class="pill">⏱ about ${p.expected_minutes} min</span><span class="pill">You've spent ${fmtMin(ps.seconds)}</span>
-      ${p.concepts.map((c) => `<span class="pill good">${esc(state.curriculum.concepts[c])}</span>`).join("")}</div></div></div>
-    <div class="grid g2" style="margin-top:20px">
-      <div class="card"><h3>🎯 Missions</h3><div class="steps">${stepRows}</div></div>
-      <div class="grid" style="align-content:start">
-        <div class="card"><h3>👾 Boss challenge</h3><p class="muted">Optional, harder, worth big XP. Unlocks when all missions are done.</p>
-          <a class="step-row boss ${ps.complete ? "" : "locked"} ${isDone(pid, "boss") ? "done" : ""}" href="#/code/${pid}/boss"><span class="num">${isDone(pid, "boss") ? "✓" : "👾"}</span>
-          <b style="flex:1">${esc(p.boss.title)}</b><span class="pill warn">+${p.boss.xp} XP</span></a></div>
-        <div class="card"><h3>🎛️ Remix Lab</h3><p>${esc(p.remix.prompt)}</p>
-          <a class="btn ${ps.complete ? "primary" : ""}" ${ps.complete ? `href="#/remix/${pid}"` : ""} ${ps.complete ? "" : "disabled"}>${ps.complete ? "Open Remix Lab" : "🔒 Finish missions first"}</a></div>
-        ${ps.complete ? `<div class="card"><h3>⭐ How was it?</h3><p class="muted">${ps.fun ? `You rated it ${"⭐".repeat(ps.fun)} fun.` : "Tell us how fun & hard this was."}</p>
-          <button class="btn" id="rate">${ps.fun ? "Rate again" : "Rate this project"}</button></div>` : ""}
-      </div></div>`;
+  const bossDone = isDone(pid, "boss");
+  const pct = Math.round((ps.steps_done / ps.steps_total) * 100);
+  app.innerHTML = `<div class="page">
+    <div class="crumbs"><a href="#/map">Quest Map</a><span>/</span>Week ${p.week}</div>
+    <header class="page-head">
+      <div class="pe">${p.emoji}</div>
+      <div><div class="eyebrow">Week ${p.week} · Project ${p.order}</div><h1>${esc(p.title)}</h1><p class="muted">${esc(p.tagline)}</p></div>
+    </header>
+    <div class="split">
+      <div class="split-main">
+        <p class="story">${esc(p.story)}</p>
+        <section class="card flush">
+          <div class="sec-head"><h3>Missions</h3><span class="faint">${ps.steps_done} of ${ps.steps_total} done</span></div>
+          <div class="steps">${stepRows}</div>
+        </section>
+      </div>
+      <aside class="split-side">
+        <section class="card">
+          <div class="sec-head"><h3>Progress</h3><span class="faint">${pct}%</span></div>
+          <div class="progress"><i style="width:${pct}%"></i></div>
+          <dl class="facts">
+            <div><dt>Estimated time</dt><dd>about ${p.expected_minutes} min</dd></div>
+            <div><dt>Time spent</dt><dd>${fmtMin(ps.seconds)}</dd></div>
+            <div><dt>You'll learn</dt><dd>${p.concepts.map(concept).join(", ")}</dd></div>
+          </dl>
+          ${next ? `<a class="btn primary block" href="#/code/${pid}/${next.id}">${ps.steps_done ? "Continue" : "Start"}: ${esc(next.title)}</a>`
+                 : `<div class="done-note">✓ All missions done</div>`}
+        </section>
+        <section class="card">
+          <div class="sec-head"><h3>Boss challenge</h3><span class="faint">+${p.boss.xp} XP</span></div>
+          <p class="muted"><b>${esc(bossTitle(p))}</b> — optional and harder. It unlocks when every mission is done.</p>
+          ${ps.complete ? `<a class="btn ${bossDone ? "" : "primary"} block" href="#/code/${pid}/boss">${bossDone ? "✓ Beaten — play again" : "Take on the boss"}</a>`
+                        : `<button class="btn block" disabled>Locked</button>`}
+        </section>
+        <section class="card">
+          <div class="sec-head"><h3>Remix Lab</h3>${ps.remixed ? `<span class="faint">✓ remixed</span>` : ""}</div>
+          <p class="muted">${esc(p.remix.prompt)}</p>
+          ${ps.complete ? `<a class="btn block" href="#/remix/${pid}">Open Remix Lab</a>` : `<button class="btn block" disabled>Finish the missions first</button>`}
+        </section>
+        ${ps.complete ? `<section class="card"><div class="sec-head"><h3>How was it?</h3></div>
+          <p class="muted">${ps.fun ? `You rated it ${ps.fun}/5 for fun.` : "Tell us how fun and how hard this project was."}</p>
+          <button class="btn block" id="rate">${ps.fun ? "Rate again" : "Rate this project"}</button></section>` : ""}
+      </aside>
+    </div></div>`;
   app.querySelector("#rate")?.addEventListener("click", () => reflect(pid));
 }
 
@@ -232,18 +269,16 @@ export async function viewCode(app, pid, sid) {
   if (state.isStale?.()) return;
   if (!pstatus(pid)?.unlocked) { location.hash = `#/project/${pid}`; return; }
   const idx = p.steps.findIndex((x) => x.id === sid);
+  const track = [...p.steps.map((x, i) => ({ id: x.id, title: `${i + 1}. ${x.title}` })), { id: "boss", title: `Boss: ${bossTitle(p)}` }]
+    .map((x) => `<a href="#/code/${pid}/${x.id}" class="${isDone(pid, x.id) ? "done" : ""} ${x.id === sid ? "cur" : ""} ${x.id === "boss" ? "boss" : ""}" title="${esc(x.title)}"></a>`).join("");
   app.innerHTML = `<div class="workspace">
     <aside class="mission">
-      <div class="crumbs"><a href="#/map">Map</a> › <a href="#/project/${pid}">${p.emoji} ${esc(p.title)}</a></div>
-      <div class="stepdots">${p.steps.map((x, i) => `<a href="#/code/${pid}/${x.id}" class="${isDone(pid, x.id) ? "done" : ""} ${x.id === sid ? "cur" : ""}" title="${esc(x.title)}">${i + 1}</a>`).join("")}
-        <a href="#/code/${pid}/boss" class="${isDone(pid, "boss") ? "done" : ""} ${sid === "boss" ? "cur" : ""}" title="Boss">👾</a></div>
-      <div class="card"><h2>${sid === "boss" ? "👾 BOSS: " : `Mission ${idx + 1}: `}${esc(s.title)}</h2>
-        <div class="learn">${s.learn}</div></div>
-      <div class="card task"><h3>🎯 Your task</h3>${s.task}<div class="row" style="margin-top:8px">
-        ${s.concepts.map((c) => `<span class="pill">${esc(state.curriculum.concepts[c])}</span>`).join("")}<span class="pill warn">+${s.xp} XP</span></div></div>
-      <div class="card"><h3>💡 Hints</h3><div data-hints></div>
-        <div class="row"><button class="btn small" data-hint>Show a hint</button><button class="btn small ghost hidden" data-peek>🫣 Show me an answer</button></div>
-        <p class="faint" style="font-size:.8rem;margin:.5em 0 0">Tip: run your code first and read the output — it's usually a clue!</p></div>
+      <div class="mission-top">
+        <div class="crumbs"><a href="#/map">Map</a><span>/</span><a href="#/project/${pid}">${esc(p.title)}</a></div>
+        <div class="step-track">${track}</div>
+        <div class="eyebrow">${sid === "boss" ? "Boss challenge" : `Mission ${idx + 1} of ${p.steps.length}`} · +${s.xp} XP</div>
+      </div>
+      ${missionCard(sid === "boss" ? bossTitle(p) : s.title, s.learn, s.task, s.concepts)}
     </aside>
     <section data-ws></section></div>`;
   disposeWorkspace();
@@ -252,6 +287,19 @@ export async function viewCode(app, pid, sid) {
     onPassed: (r) => afterPass(app, p, s, r),
   });
   setupHints(app, pid, sid, s.hint_count);
+}
+
+// One card holding the lesson, the task and the hints, so the left column reads top to bottom.
+function missionCard(title, learn, task, concepts) {
+  return `<article class="card mission-card">
+    <h2>${esc(title)}</h2>
+    ${learn ? `<div class="learn">${learn}</div>` : ""}
+    <section class="task-box"><div class="label">Your task</div>${task}
+      ${concepts?.length ? `<div class="tags">${concepts.map((c) => `<span class="tag">${esc(state.curriculum.concepts[c])}</span>`).join("")}</div>` : ""}</section>
+    <section class="hints-sec"><div class="label">Hints</div><div data-hints></div>
+      <div class="row"><button class="btn small" data-hint>Show a hint</button><button class="btn small ghost hidden" data-peek>Show me an answer</button></div>
+      <p class="faint tip">Tip: run your code first and read the output. It's usually a clue.</p></section>
+  </article>`;
 }
 
 async function setupHints(app, pid, sid, count) {
@@ -302,7 +350,7 @@ function showSolution(box, code) {
 }
 
 async function afterPass(app, p, s, r) {
-  app.querySelector(".stepdots a.cur")?.classList.add("done");
+  app.querySelector(".step-track a.cur")?.classList.add("done");
   await refreshState();
   const nextBtn = r.next ? `<a class="btn primary big" href="#/code/${r.next.project}/${r.next.step}" data-close>Next mission ▶</a>` : "";
   if (r.project_complete) {
@@ -358,10 +406,11 @@ export async function viewPractice(app, id) {
     await refreshState();
     if (state.isStale?.()) return;
     app.innerHTML = `<div class="workspace"><aside class="mission">
-      <div class="crumbs"><a href="#/practice">Side Quests</a> › ${esc(state.curriculum.concepts[pr.concept])}</div>
-      <div class="card"><h2>🗡️ ${esc(pr.title)}</h2><div class="row"><span class="pill">${esc(state.curriculum.concepts[pr.concept])}</span>
-        <span class="pill">${"⭐".repeat(pr.difficulty)}</span><span class="pill warn">+${pr.xp} XP</span></div><div class="task" style="margin-top:8px">${pr.task}</div></div>
-      <div class="card"><h3>💡 Hints</h3><div data-hints></div><div class="row"><button class="btn small" data-hint>Show a hint</button><button class="btn small ghost hidden" data-peek>🫣 Show me an answer</button></div></div>
+      <div class="mission-top">
+        <div class="crumbs"><a href="#/practice">Side Quests</a><span>/</span>${esc(state.curriculum.concepts[pr.concept])}</div>
+        <div class="eyebrow">Side quest · ${["", "Easy", "Medium", "Tricky"][pr.difficulty] || ""} · +${pr.xp} XP</div>
+      </div>
+      ${missionCard(pr.title, "", pr.task, [pr.concept])}
     </aside><section data-ws></section></div>`;
     disposeWorkspace();
     currentWs = createWorkspace(app.querySelector("[data-ws]"), {
