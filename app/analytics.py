@@ -1,6 +1,7 @@
 """Learning analytics: progress, time, concept mastery, learning style, trends and the adaptive guide path."""
 import datetime as dt
 import json
+import re
 from collections import Counter, defaultdict
 
 from . import db, gamification
@@ -378,7 +379,7 @@ def guide(learner_id):
         fast = last_done["seconds"] and last_done["seconds"] < last_done["expected_seconds"] * 0.9
         clean = last_done["steps_total"] and last_done["first_try"] / last_done["steps_total"] >= 0.5
         if not last_done["boss_done"] and (fast or clean):
-            add(kid, "boss", f"Boss challenge: {proj['boss']['title']}",
+            add(kid, "boss", "Boss challenge: " + re.sub(r"^boss:\s*", "", proj["boss"]["title"], flags=re.I),
                 f"You crushed {proj['title']}. Ready for its boss?", 75,
                 {"type": "step", "project": proj["id"], "step": "boss"}, "👾")
         if not last_done["remixed"]:

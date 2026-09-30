@@ -2,8 +2,8 @@
 import { fmt } from "./tutor.js";
 import { api, chartDefaults, esc, fmtMin, fmtTime, makeChart, seriesColors, setContext, state, toast } from "./core.js";
 
-const TABS = [["overview", "Overview"], ["learning", "Learning analytics"], ["projects", "Projects & time"], ["guide", "Coaching guide"], ["tutor", "AI Tutor"],
-  ["timeline", "Activity timeline"], ["audit", "Audit log"], ["monitoring", "Monitoring"], ["data", "Data"], ["settings", "Settings"]];
+const TABS = [["overview", "Overview"], ["learning", "Learning"], ["projects", "Projects & time"], ["guide", "Coaching"], ["tutor", "AI tutor"],
+  ["timeline", "Timeline"], ["audit", "Audit log"], ["monitoring", "Monitoring"], ["data", "Data"], ["settings", "Settings"]];
 
 let learners = [];
 let sel = null;
@@ -16,9 +16,12 @@ export async function viewParent(app, tab = "overview", arg) {
   learners = await api("/api/learners");
   if (!sel || !learners.find((l) => l.id === sel)) sel = state.learner?.id || learners[0]?.id;
   app.innerHTML = `<div class="parent">
-    <div class="row" style="margin-bottom:10px"><h1 style="margin:0">👪 Parent Zone</h1><span class="spacer"></span>
-      ${learners.length ? `<label class="muted">Learner <select id="lsel">${learners.map((l) => `<option value="${l.id}" ${l.id === sel ? "selected" : ""}>${l.avatar} ${esc(l.name)}</option>`).join("")}</select></label>` : ""}
-      <a class="btn" href="#/home">← Back to PyQuest</a><button class="btn" id="logout">Lock</button></div>
+    <header class="p-head">
+      <div><div class="eyebrow">Parent Zone</div><h1>${esc(TABS.find(([k]) => k === tab)?.[1] || "Overview")}</h1></div>
+      <span class="spacer"></span>
+      ${learners.length ? `<label class="p-learner"><span class="faint">Learner</span><select id="lsel">${learners.map((l) => `<option value="${l.id}" ${l.id === sel ? "selected" : ""}>${l.avatar} ${esc(l.name)}</option>`).join("")}</select></label>` : ""}
+      <a class="btn small" href="#/home">Back to PyQuest</a><button class="btn small" id="logout">Lock</button>
+    </header>
     <nav class="ptabs">${TABS.map(([k, n]) => `<a href="#/parent/${k}" class="${k === tab ? "active" : ""}">${n}</a>`).join("")}</nav>
     <div id="pbody"><p class="muted">Loading…</p></div></div>`;
   app.querySelector("#lsel")?.addEventListener("change", (e) => { sel = +e.target.value; viewParent(app, tab); });
@@ -66,6 +69,16 @@ function pinGate(app, pinSet, tab) {
   $("#pin").focus();
 }
 
+// Audit details are JSON; show them as "key value · key value" so they're readable at a glance.
+function fmtDetails(raw) {
+  if (!raw) return "";
+  let d;
+  try { d = JSON.parse(raw); } catch (e) { return esc(raw); }
+  if (typeof d !== "object" || d === null) return esc(String(d));
+  return Object.entries(d).filter(([, v]) => v !== null && v !== "" && v !== undefined)
+    .map(([k, v]) => `<span class="kv"><span class="k">${esc(k.replace(/_/g, " "))}</span> ${esc(typeof v === "object" ? JSON.stringify(v) : String(v))}</span>`).join("");
+}
+
 const pct = (v) => (v === null || v === undefined ? "—" : `${Math.round(v * 100)}%`);
 const kpi = (v, l, s = "") => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div>${s ? `<div class="s">${s}</div>` : ""}</div>`;
 let reportCache = {};
@@ -94,11 +107,11 @@ async function overview(body) {
   const steps = r.projects.reduce((x, p) => x + p.steps_done, 0), total = r.projects.reduce((x, p) => x + p.steps_total, 0);
   const statusPill = { ahead: "good", "on track": "good", behind: "warn" }[s.status];
   body.innerHTML = `
-    <div class="kpis">
+    <div class="kpis four">
       ${kpi(`${done}/12`, "Projects complete", `${steps}/${total} missions`)}
       ${kpi(`<span class="pill ${statusPill}" style="font-size:1rem">${esc(s.status)}</span>`, "Schedule", `Day ${s.days_in + 1} of 42 · week ${s.calendar_week}`)}
       ${kpi(fmtMin(a.total_minutes * 60), "Active coding time", `${a.sessions} sessions · avg ${a.avg_session_minutes} min`)}
-      ${kpi(`🔥 ${a.streak.current}`, "Day streak", `best ${a.streak.best}`)}
+      ${kpi(`${a.streak.current} <small>days</small>`, "Day streak", `best ${a.streak.best}`)}
       ${kpi(`Lv ${r.level.level}`, esc(r.level.title), `${r.level.xp} XP`)}
       ${kpi(pct(st.raw.first_try_rate), "First-try pass rate", `${st.raw.hints_per_step} hints / step`)}
       ${kpi(r.errors.total, "Program crashes", `${pct(r.errors.crash_rate)} of ${r.errors.runs} runs`)}
@@ -137,7 +150,7 @@ async function learning(body) {
       <div class="card"><h3>Learning style</h3><p class="muted" style="margin-top:0">${st.persona.emoji} <b>${esc(st.persona.name)}</b> — ${esc(st.persona.desc)}</p>
         <div class="chart-box tall"><canvas id="p-style"></canvas></div></div>
     </div>
-    <div class="card" style="margin-top:16px"><h3>How he learns — raw signals</h3><div class="kpis" style="margin:0">
+    <div class="card" style="margin-top:16px"><h3>How he learns — raw signals</h3><div class="kpis five" style="margin:0">
       ${kpi(pct(st.raw.first_try_rate), "First-try passes", "Precision")}
       ${kpi(st.raw.hints_per_step, "Hints per step", "Independence")}
       ${kpi(st.raw.runs_per_check, "Runs per check", "Experimenting — how often he tests ideas")}
@@ -215,7 +228,7 @@ async function projects(body, arg) {
     type: "bar",
     data: { labels: r.projects.map((p) => p.title), datasets: [
       { label: "Actual minutes", data: r.projects.map((p) => Math.round(p.seconds / 60)), backgroundColor: col[0], borderRadius: 4, maxBarThickness: 22 },
-      { label: "Expected minutes", data: r.projects.map((p) => Math.round(p.expected_seconds / 60)), backgroundColor: col[2], borderRadius: 4, maxBarThickness: 22 },
+      { label: "Expected minutes", data: r.projects.map((p) => Math.round(p.expected_seconds / 60)), backgroundColor: getComputedStyle(P()).getPropertyValue("--p-ref").trim(), borderRadius: 4, maxBarThickness: 22 },
     ] },
     options: baseOpts(grid),
   });
@@ -229,7 +242,7 @@ async function projects(body, arg) {
   });
   makeChart(body.querySelector("#p-hour"), {
     type: "bar",
-    data: { labels: r.activity.by_hour.map((h) => `${h.hour}:00`), datasets: [{ label: "Minutes", data: r.activity.by_hour.map((h) => h.minutes), backgroundColor: col[0], borderRadius: 3 }] },
+    data: { labels: r.activity.by_hour.map((h) => `${h.hour}:00`), datasets: [{ label: "Minutes", data: r.activity.by_hour.map((h) => h.minutes), backgroundColor: col[0], borderRadius: 3, maxBarThickness: 14 }] },
     options: baseOpts(grid, { plugins: { legend: { display: false } } }),
   });
   if (arg) projectDetail(body.querySelector("#pdetail"), cur.find((p) => p.id === arg));
@@ -269,9 +282,9 @@ async function guide(body) {
       <li>"If you could add one feature to ${esc(r.projects.filter((p) => p.complete).slice(-1)[0]?.title || "your next project")}, what would it be?"</li>
       <li>"Explain ${esc((r.mastery.filter((m) => m.started).sort((a, b) => a.score - b.score)[0] || { label: "variables" }).label.toLowerCase())} to me like I'm 5."</li></ul></div>
     <div class="card"><h3>What he sees (his guide)</h3>${g.kid.map((k) => `<div class="note"><b>${k.emoji || ""} ${esc(k.title)}</b><span class="muted">${esc(k.text)}</span></div>`).join("")}
-      <h3 style="margin-top:16px">Adaptive path</h3><ol>${g.path.map((p) => p.type === "project"
-        ? `<li>${p.emoji} ${esc(p.title)} — ${p.complete ? "✅ done" : p.unlocked ? `${p.steps_done}/${p.steps_total} missions` : "🔒 locked"}</li>`
-        : `<li style="list-style:'↳ '">🗡️ ${esc(p.title)} <span class="pill">recommended</span></li>`).join("")}</ol></div></div>`;
+      <h3 style="margin-top:16px">Adaptive path</h3><ol class="path-list">${g.path.map((p) => p.type === "project"
+        ? `<li class="${p.unlocked ? "" : "locked"}"><span>${esc(p.title)}</span><span class="pill ${p.complete ? "good" : ""}">${p.complete ? "Done" : p.unlocked ? `${p.steps_done}/${p.steps_total} missions` : "Locked"}</span></li>`
+        : `<li class="side"><span>↳ ${esc(p.title.replace("Side quest: ", "Side quest · "))}</span><span class="pill">Recommended</span></li>`).join("")}</ol></div></div>`;
 }
 
 // ---------------------------------------------------------------- AI tutor
@@ -285,7 +298,7 @@ async function tutor(body) {
   const kindLabel = { concept_question: "Concept questions", debugging: "Debugging help", stuck: "Stuck", idea: "Ideas", check_my_work: "Check my work", off_topic: "Off topic", other: "Other" };
   body.innerHTML = `${setup}
     <div class="grid g2">
-      <div class="card"><h3>🤖 Pixel settings</h3>
+      <div class="card"><h3>Pixel settings</h3>
         <p class="muted" style="margin-top:0">Pixel is an AI tutor that gives Socratic hints and code reviews, but never full answers. When it's on, his questions, code and program output are sent to Anthropic's API. His name is not sent. Every conversation is saved here for you to read.</p>
         <p><label><input type="checkbox" id="t-en" ${st.enabled ? "checked" : ""}> Enable the AI tutor</label></p>
         <p><label>Daily question limit <input type="number" id="t-lim" min="1" max="500" value="${st.daily_limit}" style="width:90px"></label></p>
@@ -293,7 +306,7 @@ async function tutor(body) {
         <div class="row"><button class="btn primary" id="t-save">Save</button><button class="btn" id="t-test" ${st.configured ? "" : "disabled"}>Test connection</button>
           <span class="pill ${st.available ? "good" : "warn"}">${st.available ? "Active" : st.configured ? "Off" : "Not connected"}</span></div>
         <p id="t-testout" class="muted"></p></div>
-      <div class="card"><h3>Usage</h3><div class="kpis" style="margin:0">
+      <div class="card"><h3>Usage</h3><div class="kpis two" style="margin:0">
         ${kpi(s.questions, "Questions asked", `${s.error_help} about crashes`)}
         ${kpi(s.reviews, "Code reviews")}
         ${kpi(`${s.used_today}/${st.daily_limit}`, "Today")}
@@ -301,7 +314,7 @@ async function tutor(body) {
         ${kpi(s.avg_latency_ms ? `${(s.avg_latency_ms / 1000).toFixed(1)}s` : "—", "Avg reply time", `${s.errors} errors · ${s.refused} declined`)}
         ${kpi(s.steps_with_questions, "Missions he asked about")}</div></div>
     </div>
-    ${s.flagged.length ? `<div class="card alert" style="margin-top:16px"><h3>⚠️ Messages flagged for a parent</h3>
+    ${s.flagged.length ? `<div class="card alert" style="margin-top:16px"><h3>Messages flagged for you</h3>
       <p class="muted" style="margin-top:0">Pixel flags messages about safety, feeling unsafe, bullying or similar, and tells him to talk to a trusted adult.</p>
       ${s.flagged.map((f) => `<div class="note alert"><b>${fmtTime(f.ts)} · ${esc(f.project_id)}/${esc(f.step_id)}</b><span>${esc(f.text)}</span></div>`).join("")}</div>` : ""}
     <div class="grid g2" style="margin-top:16px">
@@ -347,7 +360,7 @@ async function timeline(body) {
   const d = await api(`/api/parent/timeline/${sel}?limit=300`);
   const icon = { "code.run": "▶", "check.pass": "✅", "check.fail": "❌", "hint.open": "💡", "solution.peek": "🫣", "idea.add": "💭", "remix.submit": "🎛️", "reflection.add": "⭐", "session.start": "🟢", "code.reset": "↺", "learner.update": "✏️", "learner.create": "🐣", "tutor.chat": "🤖", "tutor.review": "🔍", "tutor.error_help": "🐛🤖" };
   body.innerHTML = `<div class="card"><h3>Everything he did, newest first</h3><div class="tscroll" style="max-height:700px"><table class="t"><thead><tr><th>When</th><th>Action</th><th>Where</th><th>Details</th></tr></thead>
-    <tbody>${d.rows.map((a) => `<tr><td style="white-space:nowrap">${fmtTime(a.ts)}</td><td>${icon[a.action] || "•"} ${esc(a.action)}</td><td>${esc(a.entity_id || "")}</td><td class="faint">${esc(a.details || "")}</td></tr>`).join("")}</tbody></table></div></div>`;
+    <tbody>${d.rows.map((a) => `<tr><td style="white-space:nowrap">${fmtTime(a.ts)}</td><td><span class="action">${esc(a.action)}</span></td><td>${esc(a.entity_id || "")}</td><td class="details">${fmtDetails(a.details)}</td></tr>`).join("")}</tbody></table></div></div>`;
 }
 
 // ---------------------------------------------------------------- audit log
@@ -369,8 +382,8 @@ async function audit(body) {
       <span class="spacer"></span><a class="btn" href="/api/parent/export/audit_log.csv">⬇ Export CSV</a></form>
     <p class="faint">${d.total} matching events</p>
     <div class="tscroll" style="max-height:640px"><table class="t"><thead><tr><th>#</th><th>Time</th><th>Actor</th><th>Action</th><th>Entity</th><th>Details</th><th>IP</th></tr></thead>
-      <tbody>${d.rows.map((a) => `<tr><td class="num faint">${a.id}</td><td style="white-space:nowrap">${fmtTime(a.ts)}</td><td>${esc(a.actor)}</td><td><b>${esc(a.action)}</b></td>
-        <td>${esc(a.entity || "")} ${esc(a.entity_id || "")}</td><td class="faint" style="max-width:420px;word-break:break-word">${esc(a.details || "")}</td><td class="faint">${esc(a.ip || "")}</td></tr>`).join("")}</tbody></table></div>
+      <tbody>${d.rows.map((a) => `<tr><td class="num faint">${a.id}</td><td style="white-space:nowrap">${fmtTime(a.ts)}</td><td>${esc(a.actor)}</td><td><span class="action">${esc(a.action)}</span></td>
+        <td>${esc(a.entity || "")} ${esc(a.entity_id || "")}</td><td class="details">${fmtDetails(a.details)}</td><td class="faint">${esc(a.ip || "")}</td></tr>`).join("")}</tbody></table></div>
     <div class="row" style="margin-top:10px">${page ? `<button class="btn" data-pg="${page - 1}">← Newer</button>` : ""}${(page + 1) * 100 < d.total ? `<button class="btn" data-pg="${page + 1}">Older →</button>` : ""}</div></div>`;
   const nav = (extra) => {
     const f = new FormData(body.querySelector("#af"));
@@ -393,7 +406,7 @@ async function monitoring(body) {
   body.innerHTML = `
     <div class="row" style="margin-bottom:12px"><span><span class="health-dot"></span><b>System healthy</b></span><span class="faint">auto-refreshes every 15s</span><span class="spacer"></span>
       <select id="hrs">${[1, 6, 24, 168].map((n) => `<option value="${n}" ${n === hours ? "selected" : ""}>Last ${n < 168 ? n + "h" : "7 days"}</option>`).join("")}</select></div>
-    <div class="kpis">
+    <div class="kpis five">
       ${kpi(up, "Uptime", `since ${fmtTime(h.started_at)}`)}
       ${kpi(m.http.total, "API requests", `${m.http_5xx} server errors`)}
       ${kpi(m.runner.runs, "Programs run", `p50 ${m.runner.p50_ms ?? "—"} ms · p95 ${m.runner.p95_ms ?? "—"} ms`)}
@@ -498,15 +511,16 @@ async function browse(host, table, offset) {
 async function settings(body) {
   const l = learners.find((x) => x.id === sel);
   body.innerHTML = `<div class="grid g2">
-    ${l ? `<div class="card"><h3>${l.avatar} ${esc(l.name)}</h3>
-      <p><label>Plan start date<br><input type="date" id="sd" value="${l.start_date}"></label></p>
-      <p class="muted">The 6-week schedule (and "ahead / behind") is measured from this date.</p>
-      <p><button class="btn primary" id="save">Save</button></p>
-      <h3 style="margin-top:24px">Danger zone</h3><p class="muted">Permanently delete this learner and all of their progress, code and analytics. The audit log keeps a record that it happened.</p>
-      <button class="btn danger" id="del">Delete ${esc(l.name)}'s data</button></div>` : ""}
-    <div class="card"><h3>Parent PIN</h3><p><input type="password" id="np" placeholder="New PIN" inputmode="numeric"> <button class="btn" id="chg">Change PIN</button></p>
-      <h3 style="margin-top:20px">Dashboard theme</h3><p><select id="pt"><option value="">Follow system</option><option value="light">Light</option><option value="dark">Dark</option></select></p>
-      <h3 style="margin-top:20px">Curriculum reference</h3><p class="muted">Every mission's reference solution and hints (for helping when he's stuck).</p>
+    ${l ? `<div class="card settings-card"><h3>${esc(l.name)}</h3>
+      <label class="s-field"><span>Plan start date</span><input type="date" id="sd" value="${l.start_date}"></label>
+      <p class="muted small">The 6-week schedule, and whether he's ahead or behind, is measured from this date.</p>
+      <button class="btn primary" id="save">Save</button>
+      <div class="danger-zone"><h3>Delete learner</h3><p class="muted small">Permanently delete ${esc(l.name)} and all of their progress, code and analytics. The audit log keeps a record that it happened.</p>
+        <button class="btn danger" id="del">Delete ${esc(l.name)}'s data</button></div></div>` : ""}
+    <div class="card settings-card"><h3>Parent PIN</h3>
+      <div class="s-inline"><label class="s-field"><span>New PIN</span><input type="password" id="np" placeholder="••••" inputmode="numeric" autocomplete="new-password"></label><button class="btn" id="chg">Change PIN</button></div>
+      <label class="s-field"><span>Dashboard theme</span><select id="pt"><option value="">Follow system</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+      <h3 style="margin-top:8px">Curriculum reference</h3><p class="muted small">Every mission's reference solution and hints, for helping when he's stuck.</p>
       <select id="sol">${state.curriculum.projects.flatMap((p) => [...p.steps, p.boss].map((s) => `<option value="${p.id}/${s.id}">${p.emoji} ${esc(p.title)} — ${esc(s.title)}</option>`)).join("")}</select>
       <button class="btn" id="showsol">Show</button><pre id="solout" class="hidden"></pre></div></div>`;
   body.querySelector("#save")?.addEventListener("click", async () => {
