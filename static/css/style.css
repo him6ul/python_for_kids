@@ -464,6 +464,28 @@ aside.tutor header .iconbtn { width: 30px; height: 30px; font-size: .9rem; }
 .remix-steps .meter-box { margin: 10px 0; }
 .remix-stats { display: flex; justify-content: space-between; gap: 12px; margin-top: 6px; font-size: .88rem; font-weight: 400; }
 
+/* ============ Home ============ */
+.continue-card { display: flex; align-items: center; gap: 18px; padding: 18px 20px; margin-bottom: 16px; text-decoration: none; color: var(--text);
+  border-left: 1px solid var(--line); transition: border-color .15s; }
+a.continue-card:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.continue-card .pe { font-size: 2rem; width: 60px; height: 60px; flex-shrink: 0; display: grid; place-items: center; background: var(--bg2); border-radius: 12px; }
+.cc-body { flex: 1; min-width: 0; }
+.cc-body h2 { margin: 3px 0 8px; font-size: 1.25rem; }
+.cc-body p { margin: 0; }
+.cc-meta { display: flex; align-items: center; gap: 10px; max-width: 360px; }
+.cc-meta .progress { flex: 1; height: 5px; }
+.cc-meta .faint { font-size: .8rem; white-space: nowrap; }
+.stat-strip.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.home-split { grid-template-columns: minmax(0, 1fr) 320px; }
+.home-split .week-row { grid-template-columns: 170px minmax(0, 1fr); }
+.home-split .week-projects { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.guide-list { gap: 8px; }
+.guide-item { align-items: flex-start; padding: 10px 12px; gap: 10px; }
+.guide-item .e { font-size: 1.05rem; width: 26px; text-align: center; padding-top: 1px; }
+.gi-body { flex: 1; min-width: 0; font-size: .86rem; }
+.gi-body b { font-weight: 600; }
+.gi-body .muted { font-size: .82rem; }
+
 /* ============ Modals, toasts ============ */
 .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(2px); display: grid; place-items: center; z-index: 100; animation: fade .2s; padding: 16px; }
 .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 26px; max-width: 560px; width: 100%; text-align: center; box-shadow: var(--shadow);
@@ -582,6 +604,9 @@ table.t td.num, table.t th.num { text-align: right; font-variant-numeric: tabula
 .shake { animation: shake .4s; }
 
 @media (max-width: 1000px) {
+  .stat-strip.five { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .home-split { grid-template-columns: 1fr; }
+  .continue-card { flex-wrap: wrap; }
   .stat-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .journey-split { grid-template-columns: 1fr; }
   .week-row { grid-template-columns: 1fr; gap: 10px; }

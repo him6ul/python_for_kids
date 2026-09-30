@@ -122,44 +122,64 @@ function pickLearner(l) {
 export async function viewHome(app) {
   setContext("_home", "home");
   const s = await refreshState();
+  if (state.isStale?.()) return;
   const g = s.guide;
   const pos = g.position;
   const done = s.projects.filter((p) => p.complete).length;
   const steps = s.projects.reduce((a, p) => a + p.steps_done, 0), total = s.projects.reduce((a, p) => a + p.steps_total, 0);
   const cur = pos ? project(pos.project) : null;
-  const greet = ["Ready to code?", "Let's build something awesome!", "Your Python powers are growing!", "Adventure awaits!"][new Date().getDate() % 4];
-  app.innerHTML = `
-    <div class="hello"><div class="av">${state.learner.avatar}</div>
-      <div><h1>Hey ${esc(state.learner.name)}! 👋</h1><div class="muted" style="font-size:1.1rem">${greet}</div></div></div>
-    <div class="grid g2">
-      ${cur ? `<a class="card continue-card" href="#/code/${pos.project}/${pos.step}" style="text-decoration:none">
-        <div class="big-emoji">${cur.emoji}</div>
-        <div><div style="opacity:.85;font-weight:700">Week ${cur.week} · ${esc(cur.title)}</div>
-        <h2 style="margin:4px 0">${esc(pos.step_title)}</h2><span class="btn primary">Continue ▶</span></div></a>`
-      : `<div class="card continue-card"><div class="big-emoji">🎓</div><div><h2>Quest complete!</h2><p>You finished all 12 projects. Legend.</p>
-        <a class="btn primary" href="#/playground">Open Playground</a></div></div>`}
-      <div class="card"><div class="grid g4" style="grid-template-columns:repeat(4,1fr)">
-        <div class="stat"><div class="num">${done}/12</div><div class="lbl">Projects</div></div>
-        <div class="stat"><div class="num">${s.level.xp}</div><div class="lbl">XP</div></div>
-        <div class="stat"><div class="num">🔥${s.streak.current}</div><div class="lbl">Day streak</div></div>
-        <div class="stat"><div class="num">${s.today_minutes}</div><div class="lbl">Min today</div></div></div>
-        <div style="margin-top:14px"><div class="row"><b>Quest progress</b><span class="spacer"></span><span class="muted">${steps}/${total} missions · ${esc(g.schedule.status)}</span></div>
-        <div class="progress" style="margin-top:6px"><i style="width:${total ? (steps / total) * 100 : 0}%"></i></div></div>
+  const curStatus = cur ? pstatus(cur.id) : null;
+  const hour = new Date().getHours();
+  const hello = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const today = new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+  const tips = g.kid.filter((r) => r.kind !== "next" && r.kind !== "done");
+  const recent = s.badges.filter((b) => b.earned_at).sort((a, b) => b.earned_at - a.earned_at).slice(0, 6);
+  const statTile = (v, l) => `<div class="stat-tile"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  const schedule = { ahead: "Ahead of plan", "on track": "On track", behind: "A little behind plan" }[g.schedule.status] || g.schedule.status;
+  app.innerHTML = `<div class="page">
+    <header class="page-head">
+      <div class="pe">${state.learner.avatar}</div>
+      <div><div class="eyebrow">${today}</div><h1>${hello}, ${esc(state.learner.name)}</h1>
+        <p class="muted">${schedule} · day ${g.schedule.days_in + 1} of 42</p></div>
+    </header>
+    ${cur ? `<a class="card continue-card" href="#/code/${pos.project}/${pos.step}">
+        <div class="pe">${cur.emoji}</div>
+        <div class="cc-body"><div class="eyebrow">Up next · Week ${cur.week} · ${esc(cur.title)}</div>
+          <h2>${esc(pos.step_title)}</h2>
+          <div class="cc-meta"><div class="progress"><i style="width:${(curStatus.steps_done / curStatus.steps_total) * 100}%"></i></div>
+            <span class="faint">${curStatus.steps_done} of ${curStatus.steps_total} missions</span></div></div>
+        <span class="btn primary">Continue</span></a>`
+      : `<section class="card continue-card"><div class="pe">🎓</div><div class="cc-body"><div class="eyebrow">Quest complete</div>
+          <h2>You finished all 12 projects</h2><p class="muted">Keep building in the Playground, or remix a favourite.</p></div>
+          <a class="btn primary" href="#/playground">Open Playground</a></section>`}
+    <div class="stat-strip five">
+      ${statTile(`${done}<small>/12</small>`, "Projects")}
+      ${statTile(`${steps}<small>/${total}</small>`, "Missions")}
+      ${statTile(s.level.xp, "XP")}
+      ${statTile(`${s.streak.current}<small> day${s.streak.current === 1 ? "" : "s"}</small>`, "Streak")}
+      ${statTile(`${s.today_minutes}<small> min</small>`, "Today")}
+    </div>
+    <div class="split home-split">
+      <div class="split-main">
+        <div class="sec-head"><h3>Your 6-week quest</h3><a class="faint" href="#/map">Open map →</a></div>
+        ${questMap(s)}
       </div>
-    </div>
-    <div class="grid g2" style="margin-top:16px">
-      <div class="card"><h3>🧭 Your guide says…</h3><div class="guide-list">${g.kid.map(guideItem).join("")}</div></div>
-      <div class="card"><h3>🏅 Recent badges</h3>${badgeGrid(s.badges.filter((b) => b.earned_at).sort((a, b) => b.earned_at - a.earned_at).slice(0, 6), true)}
-        <p><a href="#/journey">See all badges & your stats →</a></p></div>
-    </div>
-    <h2 style="margin-top:26px">🗺️ Your 6-week quest</h2>
-    ${questMap(s)}`;
+      <aside class="split-side">
+        <section class="card"><div class="sec-head"><h3>Your guide suggests</h3></div>
+          ${tips.length ? `<div class="guide-list">${tips.map(guideItem).join("")}</div>` : `<p class="empty">Nothing extra right now. Keep going with your next mission.</p>`}</section>
+        <section class="card"><div class="sec-head"><h3>Recent badges</h3><a class="faint" href="#/journey">All →</a></div>
+          ${recent.length ? badgeGrid(recent) : `<p class="empty">Run your first program to earn your first badge.</p>`}</section>
+      </aside>
+    </div></div>`;
   bindGuide(app);
 }
 
 function guideItem(r) {
-  return `<div class="guide-item"><span class="e">${r.emoji || "👉"}</span><div><b>${esc(r.title)}</b><span class="muted">${esc(r.text)}</span></div>
-    <span class="spacer"></span>${r.action ? `<button class="btn small primary" data-action='${esc(JSON.stringify(r.action))}'>Go</button>` : ""}</div>`;
+  // Some tips carry their emoji in the title ("🔥 2-day streak!"); show it as the icon instead of doubling up.
+  const m = r.title.match(/^(\p{Extended_Pictographic}\uFE0F?)\s*(.*)$/u);
+  const icon = m ? m[1] : r.emoji || "•", title = m ? m[2] : r.title;
+  return `<div class="guide-item"><span class="e">${icon}</span><div class="gi-body"><b>${esc(title)}</b><span class="muted">${esc(r.text)}</span></div>
+    ${r.action ? `<button class="btn ghost xs" data-action='${esc(JSON.stringify(r.action))}'>Go</button>` : ""}</div>`;
 }
 
 function bindGuide(app) {
