@@ -565,9 +565,10 @@ a.continue-card:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(
 .toast { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; box-shadow: var(--shadow); animation: slidein .25s ease-out; font-weight: 500; max-width: 360px; }
 .toast { cursor: default; transition: opacity .2s, transform .2s; }
 .toast.leaving { opacity: 0; transform: translateY(6px); }
-.badge-toast { padding: 10px 12px; width: 320px; max-width: calc(100vw - 40px); }
+.rich-toast { padding: 10px 12px; width: 320px; max-width: calc(100vw - 40px); }
 .toast-row { display: flex; align-items: center; gap: 12px; }
 .t-icon { font-size: 1.25rem; width: 40px; height: 40px; flex-shrink: 0; display: grid; place-items: center; background: var(--bg2); border-radius: 10px; }
+.t-icon.xp { font: 700 .72rem var(--font-body); letter-spacing: .06em; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--bg2)); }
 .t-body { flex: 1; min-width: 0; display: grid; line-height: 1.35; }
 .t-body .eyebrow { font-size: .66rem; }
 .t-body b { font-weight: 600; font-size: .9rem; }

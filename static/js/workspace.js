@@ -1,5 +1,5 @@
 // The coding workspace: editor + console + turtle canvas, used by missions, side quests, playground and remix.
-import { api, celebrate, el, esc, modal, sfx, state, toast } from "./core.js";
+import { api, celebrate, el, esc, modal, sfx, state, toast, xpToast } from "./core.js";
 import { TurtleCanvas } from "./turtle.js";
 import { createTutor } from "./tutor.js";
 
@@ -233,7 +233,7 @@ export function showBadge(b) {
   sfx("badge");
   toast(`<div class="toast-row"><span class="t-icon">${b.emoji}</span>
     <div class="t-body"><span class="eyebrow">Badge unlocked</span><b>${esc(b.name)}</b><span class="faint">${esc(b.desc)}</span></div>
-    <a class="t-link" href="#/journey">View</a></div>`, 5500, "badge-toast");
+    <a class="t-link" href="#/journey">View</a></div>`, 5500, "rich-toast");
 }
 
 export function rewards(r) {
@@ -241,8 +241,9 @@ export function rewards(r) {
   if (!rw.xp) { sfx("ok"); return; }
   sfx("pass");
   celebrate(r.project_complete ? 2 : 1);
-  const bonus = (rw.bonuses || []).map((b) => `<span class="pill good">${esc(b)}</span>`).join(" ");
-  toast(`<span class="xp-pop" style="font-size:1.4rem">+${rw.xp} XP</span> ${bonus}`);
+  // bonuses arrive as e.g. "First try! +5"; show them as a quiet "First try +5 · No hints +5" line
+  const detail = (rw.bonuses || []).map((b) => b.replace(/!/g, "")).join(" · ");
+  xpToast(rw.xp, r.project_complete ? "Project complete" : "Mission passed", detail);
   (rw.badges || []).forEach((b, i) => setTimeout(() => showBadge(b), 600 + i * 700));
   if (rw.level_up) {
     setTimeout(() => {

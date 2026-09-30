@@ -1,5 +1,5 @@
 // Kid-facing screens.
-import { api, celebrate, chartDefaults, el, esc, fmtMin, makeChart, modal, seriesColors, setContext, sfx, state, toast } from "./core.js";
+import { api, celebrate, chartDefaults, el, esc, fmtMin, makeChart, modal, seriesColors, setContext, sfx, state, toast, xpToast } from "./core.js";
 import { createWorkspace, rewards, showBadge } from "./workspace.js";
 
 const AVATARS = ["🦊", "🐉", "🤖", "🦖", "🐙", "🦄", "🐼", "🦁", "🐸", "👾", "🚀", "🧙", "🥷", "🦈", "🐧", "🦅"];
@@ -458,7 +458,7 @@ function bindScales(root) {
 }
 async function saveReflection(pid, fun, difficulty, note) {
   const r = await api(`/api/learners/${state.learner.id}/reflection`, { method: "POST", body: { project: pid, fun, difficulty, note } });
-  if (r.xp) toast(`+${r.xp} XP for reflecting`);
+  if (r.xp) xpToast(r.xp, "Thanks for rating", "Reflecting helps tune your quest");
   document.dispatchEvent(new CustomEvent("xp-changed"));
 }
 
@@ -639,7 +639,7 @@ function ideaComposer(host, pid, onSaved) {
     try {
       const r = await api(`/api/learners/${state.learner.id}/ideas`, { method: "POST", body: { text: ta.value, project: pid } });
       sfx("ok");
-      toast(`${esc(r.analysis.level_name)}-level idea saved · +${r.xp} XP`);
+      xpToast(r.xp, "Idea saved", `${r.analysis.level_name}-level idea`);
       r.badges.forEach(showBadge);
       ta.value = ""; meter.innerHTML = blank;
       document.dispatchEvent(new CustomEvent("xp-changed"));

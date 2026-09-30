@@ -52,6 +52,13 @@ export function toast(html, ms = 3500, cls = "") {
   setTimeout(leave, ms);
 }
 
+// XP award toast, same layout as the badge toast: small "XP" tile, what it was for, the amount, optional detail.
+export function xpToast(xp, title, detail = "") {
+  toast(`<div class="toast-row"><span class="t-icon xp">XP</span>
+    <div class="t-body"><span class="eyebrow">${esc(title)}</span><b>+${xp} XP</b>${detail ? `<span class="faint">${esc(detail)}</span>` : ""}</div></div>`,
+  3500, "rich-toast");
+}
+
 export function modal(html, { wide = false, onClose } = {}) {
   const root = document.getElementById("modal-root");
   const bg = el(`<div class="modal-bg"><div class="modal ${wide ? "wide" : ""}">${html}</div></div>`);
