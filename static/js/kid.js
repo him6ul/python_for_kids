@@ -432,13 +432,7 @@ async function afterPass(app, p, s, r) {
   const nextStep = r.next ? p.steps.find((x) => x.id === r.next.step) : null;
   const nextBtn = r.next ? `<a class="btn primary small" href="#/code/${r.next.project}/${r.next.step}">Next: ${esc(nextStep?.title || "next mission")}</a>` : "";
   if (r.project_complete) {
-    setTimeout(() => {
-      celebrate(3);
-      const m = modal(`<div class="big">${p.emoji}🏆</div><h2>You built ${esc(p.title)}!</h2>
-        <p class="xp-pop">Project complete!</p><p>Every mission done. You should be proud — show someone what you made!</p>
-        <div class="row" style="justify-content:center"><button class="btn primary big" id="rateit">⭐ Rate it & continue</button></div>`);
-      m.node.querySelector("#rateit").onclick = () => { m.close(); reflect(p.id, true); };
-    }, 700);
+    setTimeout(() => { celebrate(2); projectComplete(p); }, 600);
   } else if (r.rewards?.xp) {
     const box = app.querySelector("[data-result]");
     box.insertAdjacentHTML("beforeend", `<div class="next-row">${nextBtn}${s.id === "boss" ? `<a class="btn primary small" href="#/project/${p.id}">Back to project</a>` : ""}
@@ -446,33 +440,70 @@ async function afterPass(app, p, s, r) {
   }
 }
 
-export function reflect(pid, thenRoute = false) {
-  const p = project(pid);
-  const fun = ["😴", "😐", "🙂", "😃", "🤩"], hard = ["🍰", "🙂", "🤔", "😅", "🥵"];
-  let f = 0, d = 0;
-  const m = modal(`<div class="big">${p.emoji}</div><h2>How was ${esc(p.title)}?</h2>
-    <p><b>How fun was it?</b></p><div class="rating" data-r="fun">${fun.map((e, i) => `<button data-v="${i + 1}">${e}</button>`).join("")}</div>
-    <p><b>How hard was it?</b></p><div class="rating" data-r="hard">${hard.map((e, i) => `<button data-v="${i + 1}">${e}</button>`).join("")}</div>
-    <textarea id="note" rows="2" placeholder="Anything you loved or hated? (optional)"></textarea>
-    <p><button class="btn primary big" id="send">Send</button> <button class="btn ghost" data-close>Skip</button></p>`);
-  m.node.querySelectorAll(".rating").forEach((row) => row.querySelectorAll("button").forEach((b) => b.onclick = () => {
+// A 1–5 scale with words at both ends; returns [html, getValue].
+function scale(name, low, high) {
+  const html = `<div class="scale-field"><div class="scale-label">${name}</div>
+    <div class="scale" data-scale>${[1, 2, 3, 4, 5].map((v) => `<button type="button" data-v="${v}" aria-label="${name} ${v} of 5">${v}</button>`).join("")}</div>
+    <div class="scale-ends"><span>${low}</span><span>${high}</span></div></div>`;
+  return html;
+}
+function bindScales(root) {
+  const values = {};
+  root.querySelectorAll("[data-scale]").forEach((row, i) => row.querySelectorAll("button").forEach((b) => b.onclick = () => {
     row.querySelectorAll("button").forEach((x) => x.classList.toggle("sel", x === b));
-    if (row.dataset.r === "fun") f = +b.dataset.v; else d = +b.dataset.v;
+    values[i] = +b.dataset.v;
     sfx("click");
   }));
-  m.node.querySelector("#send").onclick = async () => {
-    if (!f || !d) { toast("Pick one for each! 🙏"); return; }
-    const r = await api(`/api/learners/${state.learner.id}/reflection`, { method: "POST", body: { project: pid, fun: f, difficulty: d, note: m.node.querySelector("#note").value } });
+  return values;
+}
+async function saveReflection(pid, fun, difficulty, note) {
+  const r = await api(`/api/learners/${state.learner.id}/reflection`, { method: "POST", body: { project: pid, fun, difficulty, note } });
+  if (r.xp) toast(`+${r.xp} XP for reflecting`);
+  document.dispatchEvent(new CustomEvent("xp-changed"));
+}
+
+// Shown once, when the last mission of a project passes: what you did, a quick optional rating, and where to go next.
+function projectComplete(p) {
+  const ps = pstatus(p.id);
+  const xp = (state.kidState?.progress || []).filter((r) => r.project_id === p.id).reduce((a, r) => a + (r.xp || 0), 0);
+  const nextProject = state.curriculum.projects.find((x) => x.order === p.order + 1);
+  const m = modal(`<div class="dialog">
+    <div class="dialog-head"><div class="pe">${p.emoji}</div><div><div class="eyebrow">Project complete</div><h2>You built ${esc(p.title)}</h2></div></div>
+    <div class="dialog-stats"><div><b>${ps?.steps_total ?? p.steps.length}</b><span>missions</span></div><div><b>${fmtMin(ps?.seconds || 0)}</b><span>coding time</span></div><div><b>+${xp}</b><span>XP earned</span></div></div>
+    <p class="muted">Every mission done. Show someone what you made!</p>
+    <section class="dialog-sec"><div class="label">Quick rating <span class="faint">(optional)</span></div>
+      ${scale("How fun was it?", "Meh", "Loved it")}${scale("How hard was it?", "Easy", "Really hard")}</section>
+    <section class="dialog-sec"><div class="label">What next?</div>
+      <div class="choice-list">
+        <a class="choice" href="#/code/${p.id}/boss" data-go><b>Take on the boss</b><span class="faint">A harder, optional challenge · +${p.boss.xp} XP</span></a>
+        <a class="choice" href="#/remix/${p.id}" data-go><b>Remix it your way</b><span class="faint">Add your own twist · up to 80 XP</span></a>
+        ${nextProject ? `<a class="choice" href="#/project/${nextProject.id}" data-go><b>Start ${esc(nextProject.title)}</b><span class="faint">Week ${nextProject.week} · the next project</span></a>` : ""}
+      </div></section>
+    <div class="dialog-foot"><button class="btn ghost small" data-close>Close</button></div></div>`);
+  const values = bindScales(m.node);
+  m.node.querySelectorAll("[data-go]").forEach((a) => a.addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (values[0] && values[1]) await saveReflection(p.id, values[0], values[1], "");
     m.close();
-    if (r.xp) toast(`+${r.xp} XP for reflecting! 🧠`);
-    document.dispatchEvent(new CustomEvent("xp-changed"));
-    if (thenRoute) {
-      const m2 = modal(`<div class="big">🎉</div><h2>What next?</h2><div class="grid">
-        <a class="btn primary big" href="#/code/${pid}/boss" data-close>👾 Fight the boss</a>
-        <a class="btn big" href="#/remix/${pid}" data-close>🎛️ Remix it your way</a>
-        <a class="btn big" href="#/map" data-close>🗺️ Next project</a></div>`);
-      m2.node.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => m2.close()));
-    }
+    location.hash = a.getAttribute("href");
+  }));
+  m.node.querySelector("[data-close]").addEventListener("click", () => { if (values[0] && values[1]) saveReflection(p.id, values[0], values[1], ""); });
+}
+
+export function reflect(pid) {
+  const p = project(pid);
+  const m = modal(`<div class="dialog">
+    <div class="dialog-head"><div class="pe">${p.emoji}</div><div><div class="eyebrow">Rate this project</div><h2>How was ${esc(p.title)}?</h2></div></div>
+    <section class="dialog-sec">${scale("How fun was it?", "Meh", "Loved it")}${scale("How hard was it?", "Easy", "Really hard")}
+      <label class="field"><span>Anything you loved or didn't like? (optional)</span><textarea id="note" rows="2"></textarea></label></section>
+    <p class="dialog-error faint"></p>
+    <div class="dialog-foot"><button class="btn ghost small" data-close>Skip</button><button class="btn primary small" id="send">Save</button></div></div>`);
+  const values = bindScales(m.node);
+  m.node.querySelector("#send").onclick = async () => {
+    if (!values[0] || !values[1]) { m.node.querySelector(".dialog-error").textContent = "Pick a number for both questions."; return; }
+    await saveReflection(pid, values[0], values[1], m.node.querySelector("#note").value);
+    m.close();
+    if (location.hash.startsWith(`#/project/${pid}`)) viewProject(document.getElementById("app"), pid);
   };
 }
 

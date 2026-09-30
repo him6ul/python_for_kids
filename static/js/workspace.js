@@ -245,9 +245,11 @@ export function rewards(r) {
   if (rw.level_up) {
     setTimeout(() => {
       sfx("level");
-      celebrate(2);
-      modal(`<div class="big">🆙</div><h2>LEVEL UP!</h2><p class="xp-pop">Level ${rw.level_up.level}</p>
-        <p>You are now a <b>${esc(rw.level_up.title)}</b>!</p><button class="btn primary big" data-close>Awesome!</button>`);
+      celebrate(1.5);
+      modal(`<div class="dialog">
+        <div class="dialog-head"><div class="pe">⬆️</div><div><div class="eyebrow">Level up</div><h2>Level ${rw.level_up.level} · ${esc(rw.level_up.title)}</h2></div></div>
+        <p class="muted">Your Python skills just grew. Keep going to reach level ${rw.level_up.level + 1}.</p>
+        <div class="dialog-foot"><button class="btn primary small" data-close>Nice</button></div></div>`);
     }, 900);
   }
   document.dispatchEvent(new CustomEvent("xp-changed"));

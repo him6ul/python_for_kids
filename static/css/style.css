@@ -524,6 +524,32 @@ a.continue-card:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(
 .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 26px; max-width: 560px; width: 100%; text-align: center; box-shadow: var(--shadow);
   animation: rise .2s ease-out; max-height: 90vh; overflow-y: auto; }
 .modal .big { font-size: 3rem; }
+.modal:has(.dialog) { max-width: 460px; text-align: left; padding: 22px; }
+.dialog { display: grid; gap: 14px; }
+.dialog p { margin: 0; }
+.dialog-head { display: flex; gap: 14px; align-items: center; }
+.dialog-head .pe { font-size: 1.6rem; width: 48px; height: 48px; flex-shrink: 0; display: grid; place-items: center; background: var(--bg2); border-radius: 12px; }
+.dialog-head h2 { margin: 2px 0 0; font-size: 1.2rem; letter-spacing: -.01em; }
+.dialog-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.dialog-stats div { background: var(--bg2); border-radius: 10px; padding: 9px 10px; display: grid; }
+.dialog-stats b { font-size: 1.05rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.dialog-stats span { font-size: .74rem; color: var(--faint); }
+.dialog-sec { border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 10px; }
+.dialog-sec > .label { margin: 0; }
+.dialog-foot { display: flex; justify-content: flex-end; gap: 8px; }
+.dialog-error { min-height: 1em; font-size: .82rem; }
+.scale-field { display: grid; gap: 6px; }
+.scale-label { font-size: .86rem; font-weight: 500; }
+.scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.scale button { font: 600 .9rem var(--font-body); color: var(--muted); background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 0; cursor: pointer; }
+.scale button:hover { color: var(--text); }
+.scale button.sel { background: color-mix(in srgb, var(--accent) 22%, var(--panel2)); border-color: var(--accent); color: var(--text); }
+.scale-ends { display: flex; justify-content: space-between; font-size: .72rem; color: var(--faint); }
+.choice-list { display: grid; gap: 6px; }
+.choice { display: grid; gap: 1px; padding: 10px 12px; border-radius: 10px; background: var(--bg2); border: 1px solid var(--line); color: var(--text); text-decoration: none; }
+.choice:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); background: var(--panel2); }
+.choice b { font-weight: 600; font-size: .9rem; }
+.choice .faint { font-size: .78rem; }
 .modal.wide { max-width: 900px; text-align: left; }
 .xp-pop { font-family: var(--font-head); font-size: 1.6rem; color: var(--accent); font-weight: 650; }
 .rating { display: flex; gap: 8px; justify-content: center; margin: 8px 0 14px; }
