@@ -17,6 +17,27 @@ const progressOf = (pid, sid) => state.kidState?.progress.find((r) => r.project_
 const isDone = (pid, sid) => progressOf(pid, sid)?.status === "done";
 const pstatus = (pid) => state.kidState?.projects.find((p) => p.id === pid);
 
+// Missions unlock one at a time; the boss and remix need every mission done. (The server enforces this too.)
+function stepOpen(pid, sid) {
+  const p = project(pid), ps = pstatus(pid);
+  if (!p || !ps?.unlocked) return false;
+  const ids = p.steps.map((x) => x.id);
+  if (sid === "boss" || sid === "remix") return ids.every((i) => isDone(pid, i));
+  const i = ids.indexOf(sid);
+  return i >= 0 && ids.slice(0, i).every((x) => isDone(pid, x));
+}
+function firstOpenStep(pid) {
+  const p = project(pid);
+  return p.steps.find((x) => !isDone(pid, x.id))?.id || "boss";
+}
+async function guard(pid, sid, fallbackHash) {
+  const r = await api(`/api/learners/${state.learner.id}/access?project=${encodeURIComponent(pid)}&step=${encodeURIComponent(sid)}`);
+  if (r.allowed) return true;
+  toast(`🔒 ${esc(r.reason)}`);
+  location.replace(fallbackHash);
+  return false;
+}
+
 export async function refreshState() {
   state.kidState = await api(`/api/learners/${state.learner.id}/state`);
   state.learner = state.kidState.learner;
@@ -159,32 +180,46 @@ function badgeGrid(badges, onlyEarned = false) {
     <div class="e">${b.emoji}</div><div class="n">${esc(b.name)}</div><div class="d">${esc(b.desc)}</div></div>`).join("")}</div>`;
 }
 
+const WEEK_NAMES = { 1: "Talking to computers", 2: "Decisions & chance", 3: "Loops & art", 4: "Lists & functions", 5: "Dictionaries & worlds", 6: "Objects & your own game" };
+
 function questMap(s) {
   const pos = s.guide.position;
-  const weeks = [1, 2, 3, 4, 5, 6];
-  const names = { 1: "Talking to computers", 2: "Decisions & chance", 3: "Loops & art", 4: "Lists & functions", 5: "Dictionaries & worlds", 6: "Objects & your own game" };
-  return `<div class="weeks">${weeks.map((w) => `<div class="week">
-    <div class="week-head"><span class="wk">WEEK ${w}</span><span class="muted">${names[w]}</span></div>
-    <div class="proj-row">${s.projects.filter((p) => p.week === w).map((ps) => {
-      const p = project(ps.id);
-      if (!p) return "";
-      const cls = !ps.unlocked ? "locked" : ps.complete ? "complete" : pos && pos.project === ps.id ? "current" : "";
-      return `<a class="proj ${cls}" ${ps.unlocked ? `href="#/project/${ps.id}"` : ""} title="${ps.unlocked ? "" : "Finish the previous project to unlock"}">
-        <div class="pe">${ps.unlocked ? p.emoji : "🔒"}</div>
-        <div style="flex:1"><h3 style="margin:0">${esc(p.title)}</h3><div class="muted" style="font-size:.9rem">${esc(p.tagline)}</div>
-        <div class="progress" style="margin-top:8px;height:8px"><i style="width:${(ps.steps_done / ps.steps_total) * 100}%"></i></div></div>
-        <div class="badges">${ps.complete ? "✅" : ""}${ps.boss_done ? "👾" : ""}${ps.remixed ? "🎛️" : ""}</div></a>`;
-    }).join("")}</div></div>`).join("")}</div>`;
+  return `<div class="timeline">${[1, 2, 3, 4, 5, 6].map((w) => {
+    const items = s.projects.filter((p) => p.week === w);
+    const done = items.every((p) => p.complete), open = items.some((p) => p.unlocked);
+    const status = done ? "Done" : open ? "In progress" : "Locked";
+    return `<section class="week-row ${done ? "done" : open ? "open" : "locked"}">
+      <div class="week-label"><span class="dot"></span><div><div class="eyebrow">Week ${w}</div><b>${WEEK_NAMES[w]}</b>
+        <span class="faint">${status}</span></div></div>
+      <div class="week-projects">${items.map((ps) => {
+        const p = project(ps.id);
+        if (!p) return "";
+        const current = pos && pos.project === ps.id;
+        const tags = [ps.complete && "Done", ps.boss_done && "Boss beaten", ps.remixed && "Remixed"].filter(Boolean);
+        return `<a class="proj ${ps.unlocked ? "" : "locked"} ${ps.complete ? "complete" : ""} ${current ? "current" : ""}" ${ps.unlocked ? `href="#/project/${ps.id}"` : ""}
+            title="${ps.unlocked ? "" : "Finish the previous project to unlock"}">
+          <div class="pe">${ps.unlocked ? p.emoji : "🔒"}</div>
+          <div class="proj-body"><div class="proj-title"><b>${esc(p.title)}</b>${current ? `<span class="tag accent">Up next</span>` : ""}</div>
+            <div class="muted proj-tag">${esc(p.tagline)}</div>
+            <div class="proj-meta"><div class="progress"><i style="width:${(ps.steps_done / ps.steps_total) * 100}%"></i></div>
+              <span class="faint">${ps.steps_done}/${ps.steps_total}</span>${tags.map((t) => `<span class="tag">${t}</span>`).join("")}</div></div></a>`;
+      }).join("")}</div></section>`;
+  }).join("")}</div>`;
 }
 
 export async function viewMap(app) {
   setContext("_home", "map");
   const s = await refreshState();
+  if (state.isStale?.()) return;
   const side = s.guide.kid.filter((r) => r.kind === "practice");
-  app.innerHTML = `<h1>🗺️ Quest Map</h1><p class="muted">12 projects, 6 weeks. Each one unlocks the next. ✅ done · 👾 boss beaten · 🎛️ remixed</p>
-    ${side.length ? `<div class="card" style="margin-bottom:16px"><h3>🗡️ Recommended side quests</h3><div class="row">${side.map((r) =>
-      `<a class="sidequest-node" href="#/practice/${r.action.id}">🗡️ ${esc(r.title.replace("Side quest: ", ""))}</a>`).join("")}</div></div>` : ""}
-    ${questMap(s)}`;
+  const steps = s.projects.reduce((a, p) => a + p.steps_done, 0), total = s.projects.reduce((a, p) => a + p.steps_total, 0);
+  const done = s.projects.filter((p) => p.complete).length;
+  app.innerHTML = `<div class="page">
+    <header class="page-head plain"><div><div class="eyebrow">6 weeks · 12 projects</div><h1>Quest Map</h1>
+      <p class="muted">${done} of 12 projects and ${steps} of ${total} missions done. Each project unlocks the next one.</p></div></header>
+    ${side.length ? `<section class="card side-callout"><div class="sec-head"><h3>Recommended side quests</h3><a class="faint" href="#/practice">All side quests →</a></div>
+      <div class="row">${side.map((r) => `<a class="btn small" href="#/practice/${r.action.id}">${esc(r.title.replace("Side quest: ", ""))}</a>`).join("")}</div></section>` : ""}
+    ${questMap(s)}</div>`;
 }
 
 // ---------------------------------------------------------------- project page
@@ -268,9 +303,18 @@ export async function viewCode(app, pid, sid) {
   await refreshState();
   if (state.isStale?.()) return;
   if (!pstatus(pid)?.unlocked) { location.hash = `#/project/${pid}`; return; }
+  if (!stepOpen(pid, sid)) {
+    const target = firstOpenStep(pid);
+    await guard(pid, sid, target === "boss" && sid === "boss" ? `#/project/${pid}` : `#/code/${pid}/${target}`);
+    return;
+  }
   const idx = p.steps.findIndex((x) => x.id === sid);
   const track = [...p.steps.map((x, i) => ({ id: x.id, title: `${i + 1}. ${x.title}` })), { id: "boss", title: `Boss: ${bossTitle(p)}` }]
-    .map((x) => `<a href="#/code/${pid}/${x.id}" class="${isDone(pid, x.id) ? "done" : ""} ${x.id === sid ? "cur" : ""} ${x.id === "boss" ? "boss" : ""}" title="${esc(x.title)}"></a>`).join("");
+    .map((x) => {
+      const open = stepOpen(pid, x.id);
+      return `<a ${open ? `href="#/code/${pid}/${x.id}"` : ""} class="${isDone(pid, x.id) ? "done" : ""} ${x.id === sid ? "cur" : ""} ${x.id === "boss" ? "boss" : ""} ${open ? "" : "locked"}"
+        title="${esc(x.title)}${open ? "" : " (locked)"}"></a>`;
+    }).join("");
   app.innerHTML = `<div class="workspace">
     <aside class="mission">
       <div class="mission-top">
@@ -405,6 +449,7 @@ export async function viewPractice(app, id) {
     setContext("_practice", id);
     await refreshState();
     if (state.isStale?.()) return;
+    if (!pr || !(await guard("_practice", id, "#/practice"))) return;
     app.innerHTML = `<div class="workspace"><aside class="mission">
       <div class="mission-top">
         <div class="crumbs"><a href="#/practice">Side Quests</a><span>/</span>${esc(state.curriculum.concepts[pr.concept])}</div>
@@ -514,6 +559,7 @@ export async function viewRemix(app, pid) {
   const p = project(pid);
   setContext(pid, "remix");
   await refreshState();
+  if (state.isStale?.() || !(await guard(pid, "remix", `#/project/${pid}`))) return;
   const ideas = (await api(`/api/learners/${state.learner.id}/ideas`)).ideas.filter((i) => i.project_id === pid);
   if (state.isStale?.()) return;
   app.innerHTML = `<div class="workspace"><aside class="mission">
@@ -547,62 +593,97 @@ export async function viewRemix(app, pid) {
 export async function viewJourney(app) {
   setContext("_journey", "-");
   const [s, j] = await Promise.all([refreshState(), api(`/api/learners/${state.learner.id}/journey`)]);
+  if (state.isStale?.()) return;
   const st = j.style;
   const seen = Object.fromEntries(j.errors.by_type.map((e) => [e.type, e]));
   const allMonsters = Object.values(state.curriculum.bestiary).filter((m, i, arr) => arr.findIndex((x) => x.name === m.name) === i);
-  app.innerHTML = `<h1>📈 My Journey</h1>
-    <div class="grid g2">
-      <div class="card"><h3>🧬 Your coder type</h3><div class="persona"><div class="e">${st.persona.emoji}</div>
-        <div><h2 style="margin:0">${esc(st.persona.name)}</h2><p class="muted">${esc(st.persona.desc)}</p></div></div>
-        <div class="chart-box"><canvas id="c-style"></canvas></div></div>
-      <div class="card"><h3>🌳 Skill tree</h3><p class="muted" style="margin-top:0">Rings fill up as you use a skill — especially when you use it on your own in the Playground or a remix.</p>
-        <div class="skills">${j.mastery.map((m) => `<div class="skill ${m.started ? "" : "not-started"}" title="${m.steps_done}/${m.steps_total} missions · used on your own ${m.independent_uses}×">
-        <div class="ring" style="--p:${Math.round(m.score * 100)}"><span>${Math.round(m.score * 100)}%</span></div><b>${esc(m.label)}</b><div class="faint" style="font-size:.78rem">${esc(m.status)}</div></div>`).join("")}</div></div>
+  const defeated = j.errors.by_type.filter((e) => e.defeated).length;
+  const earned = s.badges.filter((b) => b.earned_at).length;
+  const started = j.mastery.filter((m) => m.started).length;
+  const statTile = (v, l) => `<div class="stat-tile"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  app.innerHTML = `<div class="page">
+    <header class="page-head plain"><div><div class="eyebrow">Your progress</div><h1>My Journey</h1>
+      <p class="muted">How your skills, habits and ideas are growing.</p></div></header>
+    <div class="stat-strip">
+      ${statTile(`${j.activity.total_minutes}<small> min</small>`, "Coding time")}
+      ${statTile(j.activity.sessions, "Sessions")}
+      ${statTile(`${j.activity.streak.best}<small> days</small>`, "Best streak")}
+      ${statTile(`${started}<small>/16</small>`, "Skills started")}
+      ${statTile(`${defeated}<small>/${allMonsters.length}</small>`, "Bugs defeated")}
+      ${statTile(`${earned}<small>/${s.badges.length}</small>`, "Badges")}
     </div>
-    <div class="grid g2" style="margin-top:16px">
-      <div class="card"><h3>⏱️ Coding time (last 4 weeks)</h3><p class="muted" style="margin-top:0">${j.activity.total_minutes} minutes total · ${j.activity.sessions} sessions · best streak ${j.activity.streak.best} days</p>
-        <div class="heat">${heat(j.activity.daily)}</div></div>
-      <div class="card"><h3>📊 Your code is growing</h3><p class="muted" style="margin-top:0">Complexity of the code you passed each mission with.</p>
-        <div class="chart-box"><canvas id="c-growth"></canvas></div></div>
-    </div>
-    <div class="card" style="margin-top:16px"><h3>🐛 Bug Bestiary</h3><p class="muted" style="margin-top:0">Every bug is a monster. Fix one and it's defeated! (${j.errors.by_type.filter((e) => e.defeated).length} of ${allMonsters.length} defeated)</p>
-      <div class="bestiary">${allMonsters.map((m) => { const e = seen[m.type] || Object.values(seen).find((x) => x.name === m.name);
-        return `<div class="monster ${e ? (e.defeated ? "defeated" : "") : "unseen"}"><div class="e">${e ? m.emoji : "❔"}</div>
-        <div><b>${e ? esc(m.name) : "???"}</b> ${e?.defeated ? "✅" : ""}<div class="faint" style="font-size:.8rem">${e ? `Met ${e.count}× · ` + esc(m.desc) : "Not met yet"}</div></div></div>`; }).join("")}</div></div>
-    <div class="grid g2" style="margin-top:16px">
-      <div class="card"><h3>💡 Idea power</h3>${j.ideas.ideas.length ? `<div class="chart-box"><canvas id="c-ideas"></canvas></div>` : `<p class="muted">Save ideas in your <a href="#/ideas">journal</a> to see your idea power grow.</p>`}</div>
-      <div class="card"><h3>🏅 All badges (${s.badges.filter((b) => b.earned_at).length}/${s.badges.length})</h3>${badgeGrid(s.badges)}</div>
-    </div>`;
+    <div class="split journey-split">
+      <div class="split-main">
+        <section class="card"><div class="sec-head"><h3>Skills</h3><span class="faint">Grows faster when you use a skill on your own</span></div>
+          <div class="skill-list">${j.mastery.map((m) => `<div class="skill-row ${m.started ? "" : "not-started"}" title="${m.steps_done}/${m.steps_total} missions · used on your own ${m.independent_uses}×">
+            <span class="name">${esc(m.label)}</span><div class="progress"><i style="width:${Math.round(m.score * 100)}%"></i></div>
+            <span class="pct">${m.started ? `${Math.round(m.score * 100)}%` : "—"}</span><span class="state faint">${esc(m.status)}</span></div>`).join("")}</div></section>
+        <section class="card"><div class="sec-head"><h3>Your code is growing</h3><span class="faint">Complexity of each passed mission</span></div>
+          ${j.code_growth.length >= 2 ? `<div class="chart-box"><canvas id="c-growth"></canvas></div>`
+            : `<p class="empty">Pass a couple of missions and a chart of how your code grows will appear here.</p>`}</section>
+        <section class="card"><div class="sec-head"><h3>Bug Bestiary</h3><span class="faint">${defeated} of ${allMonsters.length} defeated</span></div>
+          <p class="muted small">Every bug type is a monster. Fix one and it counts as defeated.</p>
+          ${(() => {
+            const met = allMonsters.map((m) => ({ m, e: seen[m.type] || Object.values(seen).find((x) => x.name === m.name) })).filter((x) => x.e);
+            const unseen = allMonsters.length - met.length;
+            return `${met.length ? `<div class="bestiary">${met.map(({ m, e }) => `<div class="monster ${e.defeated ? "defeated" : ""}"><div class="e">${m.emoji}</div>
+              <div><b>${esc(m.name)}</b>${e.defeated ? ` <span class="tag">Defeated</span>` : ""}<div class="faint">Met ${e.count}× · ${esc(m.desc)}</div></div></div>`).join("")}</div>`
+              : `<p class="empty">No bugs met yet. When your code crashes, the bug's monster shows up here.</p>`}
+            ${met.length && unseen ? `<p class="faint small">${unseen} more to discover.</p>` : ""}`;
+          })()}</section>
+      </div>
+      <aside class="split-side">
+        <section class="card"><div class="sec-head"><h3>Your coder type</h3></div>
+          <div class="persona"><div class="pe">${st.persona.emoji}</div><div><b>${esc(st.persona.name)}</b><p class="muted small">${esc(st.persona.desc)}</p></div></div>
+          ${s.progress.some((r) => r.status === "done") ? `<div class="chart-box small-chart"><canvas id="c-style"></canvas></div>`
+            : `<p class="empty">Finish your first mission to see your coder profile.</p>`}</section>
+        <section class="card"><div class="sec-head"><h3>Coding days</h3><span class="faint">Last 4 weeks</span></div>
+          ${heat(j.activity.daily)}</section>
+        <section class="card"><div class="sec-head"><h3>Idea power</h3><a class="faint" href="#/ideas">Idea journal →</a></div>
+          ${j.ideas.ideas.length >= 2 ? `<div class="chart-box small-chart"><canvas id="c-ideas"></canvas></div>`
+            : j.ideas.ideas.length ? `<p class="muted small">Latest idea: <b>${esc(j.ideas.ideas[0].analysis?.level_name || "")}</b> (${j.ideas.ideas[0].score}/100). Save another to see a trend.</p>`
+            : `<p class="empty">Save ideas in your journal to watch your idea power grow.</p>`}</section>
+        <section class="card"><div class="sec-head"><h3>Badges</h3><span class="faint">${earned} of ${s.badges.length}</span></div>${badgeGrid(s.badges)}</section>
+      </aside>
+    </div></div>`;
   const root = document.documentElement;
   const { text, grid } = chartDefaults(root, "--muted", "--line");
   const col = seriesColors(root);
-  makeChart(app.querySelector("#c-style"), {
+  const accent = getComputedStyle(root).getPropertyValue("--accent").trim();
+  if (app.querySelector("#c-style")) makeChart(app.querySelector("#c-style"), {
     type: "radar",
     data: { labels: Object.keys(st.traits), datasets: [{ label: "You", data: Object.values(st.traits).map((v) => Math.round(v * 100)),
-      borderColor: col[0], backgroundColor: col[0] + "33", borderWidth: 2, pointRadius: 4, pointBackgroundColor: col[0] }] },
+      borderColor: accent, backgroundColor: accent + "26", borderWidth: 2, pointRadius: 3, pointBackgroundColor: accent }] },
     options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
-      scales: { r: { min: 0, max: 100, ticks: { display: false }, grid: { color: grid }, angleLines: { color: grid }, pointLabels: { color: text, font: { size: 13, weight: 700 } } } } },
+      scales: { r: { min: 0, max: 100, ticks: { display: false }, grid: { color: grid }, angleLines: { color: grid }, pointLabels: { color: text, font: { size: 11, weight: 500 } } } } },
   });
-  makeChart(app.querySelector("#c-growth"), {
+  if (app.querySelector("#c-growth")) makeChart(app.querySelector("#c-growth"), {
     type: "line",
     data: { labels: j.code_growth.map((r, i) => i + 1), datasets: [{ label: "Complexity", data: j.code_growth.map((r) => r.complexity),
-      borderColor: col[2], backgroundColor: col[2], borderWidth: 2, pointRadius: 4, tension: 0.3 }] },
+      borderColor: col[0], backgroundColor: col[0], borderWidth: 2, pointRadius: 3, tension: 0.3 }] },
     options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (it) => `${j.code_growth[it[0].dataIndex].project_id} / ${j.code_growth[it[0].dataIndex].step_id}` } } },
       scales: { x: { title: { display: true, text: "Missions passed" }, grid: { display: false } }, y: { beginAtZero: true, grid: { color: grid } } } },
   });
-  if (j.ideas.ideas.length) makeChart(app.querySelector("#c-ideas"), {
+  if (app.querySelector("#c-ideas")) makeChart(app.querySelector("#c-ideas"), {
     type: "line",
-    data: { labels: j.ideas.ideas.map((i) => new Date(i.ts * 1000).toLocaleDateString()), datasets: [{ label: "Idea score", data: j.ideas.ideas.map((i) => i.score),
-      borderColor: col[4], backgroundColor: col[4], borderWidth: 2, pointRadius: 5, tension: 0.3 }] },
+    data: { labels: j.ideas.ideas.map((i) => new Date(i.ts * 1000).toLocaleDateString([], { month: "short", day: "numeric" })), datasets: [{ label: "Idea score", data: j.ideas.ideas.map((i) => i.score),
+      borderColor: col[0], backgroundColor: col[0], borderWidth: 2, pointRadius: 3, tension: 0.3 }] },
     options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, grid: { color: grid } }, x: { grid: { display: false } } } },
   });
 }
 
+// Calendar of active days: 4 weeks × 7 days, Monday first, shade = minutes coded.
 function heat(daily) {
   const max = Math.max(10, ...daily.map((d) => d.minutes));
-  const col = getComputedStyle(document.documentElement).getPropertyValue("--series-3").trim() || "#199e70";
-  return daily.map((d) => {
-    const a = d.minutes ? 0.25 + 0.75 * (d.minutes / max) : 0;
-    return `<div data-tip="${d.day}: ${d.minutes} min" style="${a ? `background:color-mix(in srgb, ${col} ${Math.round(a * 100)}%, transparent)` : ""}"></div>`;
-  }).join("");
+  const days = daily.slice(-28);
+  const lead = (new Date(days[0].day + "T00:00").getDay() + 6) % 7;
+  const cells = Array(lead).fill(`<div class="pad"></div>`).concat(days.map((d) => {
+    const a = d.minutes ? 0.3 + 0.7 * (d.minutes / max) : 0;
+    const label = new Date(d.day + "T00:00").toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+    return `<div data-tip="${label}: ${d.minutes} min" style="${a ? `background:color-mix(in srgb, var(--accent) ${Math.round(a * 100)}%, var(--panel2))` : ""}"></div>`;
+  }));
+  const total = days.reduce((a, d) => a + d.minutes, 0), active = days.filter((d) => d.minutes > 0).length;
+  return `<div class="heat-head">${["M", "T", "W", "T", "F", "S", "S"].map((d) => `<span>${d}</span>`).join("")}</div>
+    <div class="heat">${cells.join("")}</div>
+    <p class="faint small heat-note">${active} active day${active === 1 ? "" : "s"} · ${Math.round(total)} min</p>`;
 }

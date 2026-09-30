@@ -330,7 +330,8 @@ aside.tutor header .iconbtn { width: 30px; height: 30px; font-size: .9rem; }
 .step-track a.boss { flex: .6; background: transparent; border: 1px dashed var(--line); height: 5px; }
 .step-track a.done { background: color-mix(in srgb, var(--good) 70%, var(--panel2)); border-color: transparent; }
 .step-track a.cur { background: var(--accent); border-color: transparent; }
-.step-track a:hover { filter: brightness(1.2); }
+.step-track a[href]:hover { filter: brightness(1.2); }
+.step-track a.locked { opacity: .45; cursor: not-allowed; }
 .mission-card { padding: 20px; display: grid; gap: 18px; }
 .mission-card h2 { margin: 0; font-size: 1.25rem; letter-spacing: -.01em; }
 .mission-card .learn { color: var(--text); line-height: 1.65; }
@@ -350,6 +351,71 @@ aside.tutor header .iconbtn { width: 30px; height: 30px; font-size: .9rem; }
 .output-area .pane:first-child { background: var(--console-bg); }
 .canvas-body { flex: 1; min-height: 0; display: grid; place-items: center; padding: 8px; background: var(--bg2); }
 .coding.with-canvas .output-area { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+
+/* ============ Quest map timeline ============ */
+.page-head.plain { display: block; }
+.page-head.plain p { margin-top: 4px; }
+.side-callout { margin-bottom: 20px; }
+.timeline { display: grid; gap: 0; }
+.week-row { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 20px; position: relative; padding-bottom: 22px; }
+.week-row::before { content: ""; position: absolute; left: 5px; top: 16px; bottom: 0; width: 1px; background: var(--line); }
+.week-row:last-child::before { display: none; }
+.week-label { display: flex; gap: 14px; align-items: flex-start; padding-top: 6px; }
+.week-label .dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; background: var(--bg); border: 2px solid var(--line); position: relative; z-index: 1; }
+.week-row.open .dot { border-color: var(--accent); }
+.week-row.done .dot { background: var(--good); border-color: var(--good); }
+.week-label b { display: block; font-weight: 600; font-size: .92rem; margin: 2px 0; }
+.week-label .faint { font-size: .78rem; }
+.week-projects { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.proj { align-items: flex-start; padding: 14px; gap: 14px; }
+.proj .pe { width: 48px; height: 48px; font-size: 1.7rem; }
+.proj-body { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.proj-title { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.proj-title b { font-weight: 600; }
+.proj-tag { font-size: .85rem; line-height: 1.45; }
+.proj-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.proj-meta .progress { flex: 1; min-width: 60px; height: 4px; }
+.proj-meta .faint { font-size: .76rem; font-variant-numeric: tabular-nums; }
+.tag.accent { background: color-mix(in srgb, var(--accent) 18%, var(--panel2)); color: var(--text); }
+.proj.locked .proj-meta .progress { display: none; }
+
+/* ============ Journey ============ */
+.stat-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 20px; }
+.stat-tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+.stat-tile .v { font-size: 1.35rem; font-weight: 650; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.stat-tile .v small { font-size: .75rem; font-weight: 500; color: var(--faint); }
+.stat-tile .l { font-size: .78rem; color: var(--muted); }
+.journey-split { grid-template-columns: minmax(0, 1fr) 340px; }
+.skill-list { display: grid; gap: 2px; }
+.skill-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 42px 86px; align-items: center; gap: 12px; padding: 7px 4px; border-radius: 8px; font-size: .88rem; }
+.skill-row:hover { background: var(--bg2); }
+.skill-row .progress { height: 5px; }
+.skill-row .pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.skill-row .state { font-size: .76rem; }
+.skill-row.not-started .name { color: var(--faint); }
+.empty { color: var(--faint); font-size: .88rem; margin: 6px 0; padding: 18px; text-align: center; border: 1px dashed var(--line); border-radius: 10px; }
+.small { font-size: .85rem; }
+.persona { align-items: flex-start; margin-bottom: 10px; }
+.persona .pe { font-size: 1.6rem; width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; background: var(--bg2); border-radius: 10px; }
+.persona p { margin: 2px 0 0; }
+.chart-box.small-chart { height: 210px; }
+.heat-head { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; max-width: 280px; font-size: .68rem; color: var(--faint); text-align: center; margin-bottom: 4px; }
+.heat { gap: 5px; max-width: 280px; }
+.heat div { border-radius: 4px; background: var(--panel2); }
+.heat div.pad { background: transparent; }
+.heat-note { margin: 10px 0 0; }
+.bestiary { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-top: 10px; }
+.monster { padding: 10px; gap: 10px; align-items: flex-start; }
+.monster .e { font-size: 1.4rem; width: 32px; text-align: center; }
+.monster b { font-weight: 600; font-size: .88rem; }
+.monster .faint { font-size: .76rem; line-height: 1.4; margin-top: 2px; }
+.monster.unseen { opacity: .5; filter: none; }
+.badge-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+.split-side .badge-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.badge { padding: 10px 6px; }
+.badge .e { font-size: 1.4rem; }
+.badge .n { font-size: .76rem; }
+.badge .d { display: none; }
 
 /* ============ Modals, toasts ============ */
 .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(2px); display: grid; place-items: center; z-index: 100; animation: fade .2s; padding: 16px; }
@@ -469,6 +535,11 @@ table.t td.num, table.t th.num { text-align: right; font-variant-numeric: tabula
 .shake { animation: shake .4s; }
 
 @media (max-width: 1000px) {
+  .stat-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .journey-split { grid-template-columns: 1fr; }
+  .week-row { grid-template-columns: 1fr; gap: 10px; }
+  .week-row::before { display: none; }
+  .skill-row { grid-template-columns: 120px minmax(0, 1fr) 40px; } .skill-row .state { display: none; }
   .split { grid-template-columns: 1fr; }
   .coding.with-canvas .output-area { grid-template-columns: 1fr; }
   .canvas-body { min-height: 300px; }

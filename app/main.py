@@ -236,6 +236,7 @@ def _item(project_id, step_id):
 
 @app.get("/api/learners/{lid}/code")
 def get_code(lid: int, project: str, step: str):
+    require_unlocked(lid, project, step)
     row = db.one("SELECT code FROM code_saves WHERE learner_id=? AND project_id=? AND step_id=?", (lid, project, step))
     if row:
         return {"code": row["code"], "source": "saved"}
@@ -281,6 +282,68 @@ def reset_code(lid: int, request: Request, body: dict = Body(...)):
     return {"code": it["starter"] if it else ""}
 
 
+# ---------------------------------------------------------------------------
+# progression: work unlocks strictly in order
+# ---------------------------------------------------------------------------
+def _concept_week():
+    weeks = {}
+    for p in PROJECTS:
+        for c in p["concepts"]:
+            weeks[c] = min(weeks.get(c, 99), p["week"])
+    return weeks
+
+
+CONCEPT_WEEK = _concept_week()
+
+
+def locked_reason(lid, project, step):
+    """None if the learner may open this step now, otherwise a friendly reason.
+
+    Rules: projects unlock one after another (so weeks unlock in order); inside a project each
+    mission needs all earlier missions done; the boss and the remix need every mission done;
+    a side quest unlocks once the week that teaches its concept is reachable.
+    """
+    if project == "_playground":
+        return None
+    statuses = analytics.project_status(lid)
+    if project == "_practice":
+        pr = PRACTICE_BY_ID.get(step)
+        if not pr:
+            return "Unknown side quest."
+        reachable = max([ps["week"] for ps in statuses if ps["unlocked"]], default=1)
+        week = CONCEPT_WEEK.get(pr["concept"], 1)
+        return None if week <= reachable else f"This side quest unlocks in week {week}."
+    if project not in BY_ID:
+        return "Unknown project."
+    ps = next(x for x in statuses if x["id"] == project)
+    if not ps["unlocked"]:
+        return "This project is still locked. Finish the previous project first. 🔒"
+    ids = [s["id"] for s in BY_ID[project]["steps"]]
+    done = {r["step_id"] for r in db.q("""SELECT step_id FROM step_progress WHERE learner_id=? AND project_id=?
+                                          AND status='done'""", (lid, project))}
+    if step in ("boss", "remix"):
+        missing = [i for i in ids if i not in done]
+        return f"Finish all {len(ids)} missions first ({len(missing)} to go)." if missing else None
+    if step in ids:
+        for n, earlier in enumerate(ids[:ids.index(step)]):
+            if earlier not in done:
+                return f"Finish mission {n + 1} first. Missions unlock one at a time."
+        return None
+    return "Unknown mission."
+
+
+def require_unlocked(lid, project, step):
+    reason = locked_reason(lid, project, step)
+    if reason:
+        raise HTTPException(403, reason)
+
+
+@app.get("/api/learners/{lid}/access")
+def access(lid: int, project: str, step: str):
+    reason = locked_reason(lid, project, step)
+    return {"allowed": reason is None, "reason": reason}
+
+
 def _ensure_progress(lid, project, step):
     db.ex("""INSERT OR IGNORE INTO step_progress(learner_id, project_id, step_id, status, started_at)
              VALUES(?,?,?,'started',?)""", (lid, project, step, db.now()))
@@ -314,6 +377,12 @@ async def ws_run(ws: WebSocket):
         lid = int(msg["learner"])
         project, step, mode = msg.get("project", "_playground"), msg.get("step", "main"), msg.get("mode", "step")
         code = str(msg.get("code", ""))[:100_000]
+        reason = locked_reason(lid, project, step if step != "main" else "main")
+        if reason:
+            await ws.send_json({"t": "err", "d": f"🔒 {reason}\n"})
+            await ws.send_json({"t": "end", "ok": False, "reason": "locked"})
+            obs.audit(f"learner:{lid}", "access.denied", "step", f"{project}/{step}", {"via": "run", "reason": reason})
+            return
         tmp = tempfile.mkdtemp(prefix="pyquest_")
         with open(os.path.join(tmp, "main.py"), "w", encoding="utf-8") as f:
             f.write(code)
@@ -458,6 +527,10 @@ async def check(lid: int, request: Request, body: dict = Body(...)):
     item = _item(project, step)
     if not item:
         raise HTTPException(404, "Unknown step")
+    reason = locked_reason(lid, project, step)
+    if reason:
+        obs.audit(f"learner:{lid}", "access.denied", "step", f"{project}/{step}", {"via": "check", "reason": reason}, request)
+        raise HTTPException(403, reason)
     res = await asyncio.to_thread(run_check, code, item["check"])
     _ensure_progress(lid, project, step)
     prog = db.one("SELECT * FROM step_progress WHERE learner_id=? AND project_id=? AND step_id=?", (lid, project, step))
@@ -513,6 +586,7 @@ def hint(lid: int, request: Request, body: dict = Body(...)):
     item = _item(project, step)
     if not item:
         raise HTTPException(404, "Unknown step")
+    require_unlocked(lid, project, step)
     _ensure_progress(lid, project, step)
     prog = db.one("SELECT * FROM step_progress WHERE learner_id=? AND project_id=? AND step_id=?", (lid, project, step))
     hints = item.get("hints", [])
@@ -605,6 +679,7 @@ async def submit_remix(lid: int, request: Request, body: dict = Body(...)):
     project, code = body["project"], str(body.get("code", ""))
     if project not in BY_ID:
         raise HTTPException(404, "Unknown project")
+    require_unlocked(lid, project, "remix")
     p = BY_ID[project]
     base = p["steps"][-1]["solution"]
     # must at least run cleanly with a handful of generic inputs
@@ -798,6 +873,7 @@ def tutor_history(lid: int, project: str, step: str):
 async def tutor_chat(lid: int, body: dict = Body(...)):
     _learner(lid)
     project, step = body["project"], body["step"]
+    require_unlocked(lid, project, step)
     item, title = _tutor_target(project, step)
     kind = "error" if body.get("kind") == "error" else "chat"
     return await asyncio.to_thread(_tutor_reply, lambda: tutor.chat(
@@ -808,6 +884,7 @@ async def tutor_chat(lid: int, body: dict = Body(...)):
 async def tutor_review(lid: int, body: dict = Body(...)):
     _learner(lid)
     project, step = body["project"], body["step"]
+    require_unlocked(lid, project, step)
     item, title = _tutor_target(project, step)
     return await asyncio.to_thread(_tutor_reply, lambda: tutor.review(
         lid, project, step, str(body.get("code", ""))[:20000], body.get("run"), item, title))
