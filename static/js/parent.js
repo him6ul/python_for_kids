@@ -260,7 +260,7 @@ async function tutor(body) {
   const d = await api(`/api/parent/tutor/${sel}`);
   const st = d.status, s = d.stats;
   const setup = !st.configured
-    ? `<div class="note" style="border-left-color:#eda100"><b>Not connected yet</b><span class="muted">Pixel uses the Claude API (model <code>${esc(st.model)}</code>).
+    ? `<div class="note warn"><b>Not connected yet</b><span class="muted">Pixel uses the Claude API (model <code>${esc(st.model)}</code>).
        Create an API key at console.anthropic.com, then start PyQuest with it, e.g. <code>ANTHROPIC_API_KEY=… ./run.sh</code>.
        ${st.sdk ? "" : "The <code>anthropic</code> package is also missing — run <code>.venv/bin/pip install anthropic</code>."}</span></div>` : "";
   const kindLabel = { concept_question: "Concept questions", debugging: "Debugging help", stuck: "Stuck", idea: "Ideas", check_my_work: "Check my work", off_topic: "Off topic", other: "Other" };
@@ -282,9 +282,9 @@ async function tutor(body) {
         ${kpi(s.avg_latency_ms ? `${(s.avg_latency_ms / 1000).toFixed(1)}s` : "—", "Avg reply time", `${s.errors} errors · ${s.refused} declined`)}
         ${kpi(s.steps_with_questions, "Missions he asked about")}</div></div>
     </div>
-    ${s.flagged.length ? `<div class="card" style="margin-top:16px;border-color:#e34948"><h3>⚠️ Messages flagged for a parent</h3>
+    ${s.flagged.length ? `<div class="card alert" style="margin-top:16px"><h3>⚠️ Messages flagged for a parent</h3>
       <p class="muted" style="margin-top:0">Pixel flags messages about safety, feeling unsafe, bullying or similar, and tells him to talk to a trusted adult.</p>
-      ${s.flagged.map((f) => `<div class="note" style="border-left-color:#e34948"><b>${fmtTime(f.ts)} · ${esc(f.project_id)}/${esc(f.step_id)}</b><span>${esc(f.text)}</span></div>`).join("")}</div>` : ""}
+      ${s.flagged.map((f) => `<div class="note alert"><b>${fmtTime(f.ts)} · ${esc(f.project_id)}/${esc(f.step_id)}</b><span>${esc(f.text)}</span></div>`).join("")}</div>` : ""}
     <div class="grid g2" style="margin-top:16px">
       <div class="card"><h3>What he asks about</h3><p class="muted" style="margin-top:0">Pixel tags each question with a type and the concept it's about. Concepts he asks about often are good ones to review together.</p>
         ${Object.keys(s.by_concept).length ? `<div class="chart-box"><canvas id="t-concepts"></canvas></div>` : `<p class="faint">No questions yet.</p>`}</div>
