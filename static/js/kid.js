@@ -45,6 +45,21 @@ export async function refreshState() {
   return state.kidState;
 }
 
+// Line icons (inherit currentColor) so the button matches every theme instead of a bright emoji.
+const SPEAKER = '<path d="M4 9.5h3.2L11.5 6v12l-4.3-3.5H4z"/>';
+const SOUND_ON = `<svg viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}<path d="M15 9.2a4 4 0 0 1 0 5.6M17.6 6.8a7.5 7.5 0 0 1 0 10.4"/></svg>`;
+const SOUND_OFF = `<svg viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}<path d="M15.5 9.5l5 5M20.5 9.5l-5 5"/></svg>`;
+
+export function renderSoundButton() {
+  const b = document.getElementById("soundbtn");
+  const on = !!state.learner?.sound;
+  b.innerHTML = on ? SOUND_ON : SOUND_OFF;
+  b.classList.toggle("off", !on);
+  b.setAttribute("aria-pressed", String(on));
+  b.setAttribute("aria-label", on ? "Sound effects on. Click to mute." : "Sound effects off. Click to turn on.");
+  b.title = on ? "Sound on" : "Sound off";
+}
+
 export function renderTopbar() {
   const s = state.kidState;
   if (!s) return;
@@ -54,7 +69,7 @@ export function renderTopbar() {
   document.getElementById("xpchip").title = `${L.xp} XP total — ${L.needed - L.into} XP to next level`;
   document.getElementById("streakchip").textContent = `🔥 ${s.streak.current}`;
   document.getElementById("whoami").textContent = state.learner.avatar;
-  document.getElementById("soundbtn").textContent = state.learner.sound ? "🔊" : "🔇";
+  renderSoundButton();
   document.documentElement.dataset.theme = state.learner.theme;
 }
 

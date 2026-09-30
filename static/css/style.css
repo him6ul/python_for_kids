@@ -96,6 +96,12 @@ pre code { background: none; padding: 0; color: inherit; }
 .xpchip .bar i { display: block; height: 100%; background: var(--accent); }
 .iconbtn { background: transparent; border: 1px solid var(--line); color: var(--text); border-radius: 50%; width: 34px; height: 34px;
   display: grid; place-items: center; cursor: pointer; font-size: 1rem; text-decoration: none; }
+.iconbtn { transition: background-color .15s, color .15s, border-color .15s; }
+.iconbtn:hover { background: var(--panel2); }
+.iconbtn:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 2px; }
+.iconbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+#soundbtn.off { color: var(--faint); }
+#soundbtn.off:hover { color: var(--text); }
 .avatarbtn { font-size: 1.3rem; background: var(--panel2); border: 1px solid var(--line); border-radius: 50%; width: 38px; height: 38px; cursor: pointer; }
 
 /* ============ Buttons, cards ============ */

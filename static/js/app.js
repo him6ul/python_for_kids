@@ -1,5 +1,5 @@
 // Router & boot.
-import { api, destroyCharts, state } from "./core.js";
+import { api, destroyCharts, sfx, state } from "./core.js";
 import * as kid from "./kid.js";
 import { viewParent } from "./parent.js";
 import { refreshTutorStatus } from "./tutor.js";
@@ -63,7 +63,8 @@ async function boot() {
   document.getElementById("whoami").onclick = () => { location.hash = "#/welcome"; state.learner = null; };
   document.getElementById("soundbtn").onclick = async () => {
     state.learner = await api(`/api/learners/${state.learner.id}`, { method: "PATCH", body: { sound: state.learner.sound ? 0 : 1 } });
-    kid.renderTopbar();
+    kid.renderSoundButton();
+    if (state.learner.sound) sfx("click");   // a tiny confirmation that sound is back on
   };
   document.addEventListener("xp-changed", () => kid.refreshState());
   window.addEventListener("hashchange", route);
