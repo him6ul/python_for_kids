@@ -249,7 +249,14 @@ export function rewards(r) {
       modal(`<div class="dialog">
         <div class="dialog-head"><div class="pe">⬆️</div><div><div class="eyebrow">Level up</div><h2>Level ${rw.level_up.level} · ${esc(rw.level_up.title)}</h2></div></div>
         <p class="muted">Your Python skills just grew. Keep going to reach level ${rw.level_up.level + 1}.</p>
+        <div class="level-progress">
+          <div class="lp-head"><span>Level ${rw.level_up.level + 1}</span><span class="faint">${rw.level_up.into} of ${rw.level_up.needed} XP</span></div>
+          <div class="progress"><i data-w="${Math.round((rw.level_up.into / rw.level_up.needed) * 100)}" style="width:0"></i></div>
+          <div class="faint lp-foot">${rw.level_up.xp} XP total · ${rw.level_up.needed - rw.level_up.into} XP to go</div>
+        </div>
         <div class="dialog-foot"><button class="btn primary small" data-close>Nice</button></div></div>`);
+      // let the bar fill in gently from empty once the dialog is on screen
+      requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll(".level-progress [data-w]").forEach((b) => { b.style.width = `${Math.max(2, +b.dataset.w)}%`; })));
     }, 900);
   }
   document.dispatchEvent(new CustomEvent("xp-changed"));

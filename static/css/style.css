@@ -537,6 +537,12 @@ a.continue-card:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(
 .dialog-sec { border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 10px; }
 .dialog-sec > .label { margin: 0; }
 .dialog-foot { display: flex; justify-content: flex-end; gap: 8px; }
+.level-progress { background: var(--bg2); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
+.lp-head { display: flex; justify-content: space-between; font-size: .84rem; font-weight: 600; }
+.lp-head .faint { font-weight: 400; font-variant-numeric: tabular-nums; }
+.level-progress .progress { height: 6px; background: var(--line); }
+.level-progress .progress i { transition: width .9s ease-out; }
+.lp-foot { font-size: .76rem; }
 .dialog-error { min-height: 1em; font-size: .82rem; }
 .scale-field { display: grid; gap: 6px; }
 .scale-label { font-size: .86rem; font-weight: 500; }
