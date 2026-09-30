@@ -231,7 +231,9 @@ export function createWorkspace(host, { project, step, mode = "step", checkable 
 
 export function showBadge(b) {
   sfx("badge");
-  toast(`<span style="font-size:1.6rem">${b.emoji}</span> Badge unlocked: <b>${esc(b.name)}</b><br><span class="muted">${esc(b.desc)}</span>`, 5000);
+  toast(`<div class="toast-row"><span class="t-icon">${b.emoji}</span>
+    <div class="t-body"><span class="eyebrow">Badge unlocked</span><b>${esc(b.name)}</b><span class="faint">${esc(b.desc)}</span></div>
+    <a class="t-link" href="#/journey">View</a></div>`, 5500, "badge-toast");
 }
 
 export function rewards(r) {

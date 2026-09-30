@@ -44,10 +44,12 @@ export function fmtTime(ts) {
   return d.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
-export function toast(html, ms = 3500) {
-  const t = el(`<div class="toast">${html}</div>`);
+export function toast(html, ms = 3500, cls = "") {
+  const t = el(`<div class="toast ${cls}" role="status">${html}</div>`);
   document.getElementById("toasts").appendChild(t);
-  setTimeout(() => t.remove(), ms);
+  const leave = () => { if (!t.isConnected) return; t.classList.add("leaving"); setTimeout(() => t.remove(), 220); };
+  t.addEventListener("click", (e) => { if (!e.target.closest("a")) leave(); });
+  setTimeout(leave, ms);
 }
 
 export function modal(html, { wide = false, onClose } = {}) {
