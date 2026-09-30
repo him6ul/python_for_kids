@@ -506,16 +506,23 @@ export async function viewPlayground(app) {
   setContext("_playground", "main");
   await refreshState();
   if (state.isStale?.()) return;
+  const examples = [
+    ["🎨", "Rainbow spiral", "Turtle art with a loop", "import turtle\nt = turtle.Turtle()\nt.speed(0)\ncolors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple']\nfor i in range(180):\n    t.pencolor(colors[i % 6])\n    t.forward(i * 2)\n    t.left(59)\n"],
+    ["🎲", "Dice roller", "Random numbers in a loop", "import random\nwhile True:\n    input('Press Enter to roll (or press Stop)...')\n    print('🎲', random.randint(1, 6), random.randint(1, 6))\n"],
+    ["🔤", "Word reverser", "Playing with strings", "word = input('Type a word: ')\nprint('Backwards:', word[::-1])\nprint('Shouting:', word.upper() + '!!!')\n"],
+    ["⏰", "Countdown", "A for loop with a pause", "import time\nfor n in range(10, 0, -1):\n    print(n)\n    time.sleep(0.4)\nprint('🚀 Blast off!')\n"],
+  ];
   app.innerHTML = `<div class="workspace"><aside class="mission">
-    <div class="card"><h2>🧪 Playground</h2><p>Your own space to experiment. No checks, no rules — just try stuff!</p>
-    <p class="muted">Everything you build here counts toward your skills in <b>My Journey</b>.</p></div>
-    <div class="card"><h3>🎲 Try one of these</h3><div class="guide-list">${[
-      ["🎨", "Draw a rainbow spiral", "import turtle\nt = turtle.Turtle()\nt.speed(0)\ncolors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple']\nfor i in range(180):\n    t.pencolor(colors[i % 6])\n    t.forward(i * 2)\n    t.left(59)\n"],
-      ["🎲", "Dice roller", "import random\nwhile True:\n    input('Press Enter to roll (or close with Stop)...')\n    print('🎲', random.randint(1, 6), random.randint(1, 6))\n"],
-      ["🔤", "Word reverser", "word = input('Type a word: ')\nprint('Backwards:', word[::-1])\nprint('Shouting:', word.upper() + '!!!')\n"],
-      ["⏰", "Countdown", "import time\nfor n in range(10, 0, -1):\n    print(n)\n    time.sleep(0.4)\nprint('🚀 BLAST OFF!')\n"],
-    ].map(([e, t, c]) => `<div class="guide-item"><span class="e">${e}</span><b>${t}</b><span class="spacer"></span><button class="btn small" data-code="${esc(c)}">Load</button></div>`).join("")}</div></div>
-    <div class="card"><h3>💾 Save an idea</h3><p class="muted">Thought of something cool? Add it to your <a href="#/ideas">idea journal</a>.</p></div>
+    <div class="mission-top"><div class="eyebrow">Free space · no checks</div></div>
+    <article class="card mission-card">
+      <h2>Playground</h2>
+      <p class="muted">Your own space to experiment. There are no checks and no rules. Anything you write here still counts toward your skills in <a href="#/journey">My Journey</a>.</p>
+      <section><div class="label">Start from an example</div>
+        <div class="example-list">${examples.map(([e, t, d, c]) => `<button class="example-row" data-code="${esc(c)}">
+          <span class="e">${e}</span><span class="t"><b>${t}</b><span class="faint">${d}</span></span><span class="go">Load</span></button>`).join("")}</div></section>
+      <section class="hints-sec"><div class="label">Got an idea?</div>
+        <p class="muted small">Write it down in your <a href="#/ideas">idea journal</a>, then try building the smallest version here.</p></section>
+    </article>
     </aside><section data-ws></section></div>`;
   disposeWorkspace();
   currentWs = createWorkspace(app.querySelector("[data-ws]"), { project: "_playground", step: "main", mode: "playground", checkable: false });
@@ -603,28 +610,38 @@ export async function viewRemix(app, pid) {
   if (state.isStale?.() || !(await guard(pid, "remix", `#/project/${pid}`))) return;
   const ideas = (await api(`/api/learners/${state.learner.id}/ideas`)).ideas.filter((i) => i.project_id === pid);
   if (state.isStale?.()) return;
+  const latest = ideas[ideas.length - 1];
   app.innerHTML = `<div class="workspace"><aside class="mission">
-    <div class="crumbs"><a href="#/project/${pid}">${p.emoji} ${esc(p.title)}</a> › Remix Lab</div>
-    <div class="card"><h2>🎛️ Remix ${esc(p.title)}</h2><p>${esc(p.remix.prompt)}</p>
-      <ul>${p.remix.ideas.map((i) => `<li>${esc(i)}</li>`).join("")}</ul></div>
-    <div class="card"><h3>1️⃣ Plan your twist</h3>${ideas.length ? `<p class="muted">Your idea: <i>${esc(ideas[ideas.length - 1].text)}</i></p>` : ""}<div data-comp></div></div>
-    <div class="card"><h3>2️⃣ Build it → 3️⃣ Submit</h3><p class="muted">Change the code on the right, run it, then submit. Bigger remixes earn more XP (up to 80!).</p>
-      <div data-remixres></div></div>
+    <div class="mission-top">
+      <div class="crumbs"><a href="#/map">Map</a><span>/</span><a href="#/project/${pid}">${esc(p.title)}</a><span>/</span>Remix Lab</div>
+      <div class="eyebrow">Remix Lab · up to 80 XP</div>
+    </div>
+    <article class="card mission-card">
+      <h2>Remix ${esc(p.title)}</h2>
+      <p class="muted">${esc(p.remix.prompt)}</p>
+      <section><div class="label">Ideas to try</div><ul class="spark-list">${p.remix.ideas.map((i) => `<li>${esc(i)}</li>`).join("")}</ul></section>
+      <ol class="remix-steps">
+        <li><b>Plan your twist</b>${latest ? `<p class="muted small">Your latest idea: “${esc(latest.text)}”</p>` : `<p class="muted small">Describe what you'll change. The meter shows how ambitious it is.</p>`}<div data-comp></div></li>
+        <li><b>Build it</b><p class="muted small">Change the code on the right and run it until it works the way you want.</p></li>
+        <li><b>Submit</b><p class="muted small">Press <b>Submit remix</b> above the editor. Bigger changes earn more XP.</p><div data-remixres></div></li>
+      </ol>
+    </article>
     </aside><section data-ws></section></div>`;
   let ideaId = ideas.length ? ideas[ideas.length - 1].id : null;
   ideaComposer(app.querySelector("[data-comp]"), pid, (r) => { ideaId = r.id; });
   disposeWorkspace();
   const host = app.querySelector("[data-ws]");
   currentWs = createWorkspace(host, { project: pid, step: "remix", mode: "remix", checkable: false,
-    extraButtons: `<button class="btn check" data-submit>🚀 Submit remix</button>` });
+    extraButtons: `<button class="btn check" data-submit>Submit remix</button>` });
   host.querySelector("[data-submit]").onclick = async () => {
     await currentWs.save();
     const r = await api(`/api/learners/${state.learner.id}/remix`, { method: "POST", body: { project: pid, code: currentWs.getCode(), idea_id: ideaId } });
     const box = app.querySelector("[data-remixres]");
-    if (!r.accepted) { sfx("fail"); box.innerHTML = `<div class="check-result fail">🤔 ${esc(r.message)}</div>`; return; }
-    sfx("pass"); celebrate(1.5);
-    box.innerHTML = `<div class="check-result pass">✅ ${esc(r.message)}<br>Complexity: original ${r.base_complexity} → yours <b>${r.complexity}</b>
-      ${r.xp ? `<br><span class="xp-pop" style="font-size:1.3rem">+${r.xp} XP</span>` : "<br>(Make it even bigger to earn more XP!)"}</div>`;
+    if (!r.accepted) { sfx("fail"); box.innerHTML = `<div class="check-result fail">Not yet. ${esc(r.message)}</div>`; return; }
+    sfx("pass"); celebrate(1);
+    box.innerHTML = `<div class="check-result pass"><b>${esc(r.message)}</b>
+      <div class="remix-stats"><span>Complexity <b>${r.base_complexity}</b> → <b>${r.complexity}</b></span>
+      <span>${r.xp ? `<b>+${r.xp} XP</b>` : "Make it bigger to earn more XP"}</span></div></div>`;
     r.badges.forEach(showBadge);
     document.dispatchEvent(new CustomEvent("xp-changed"));
   };
