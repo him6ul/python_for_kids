@@ -177,12 +177,12 @@ export function createWorkspace(host, { project, step, mode = "step", checkable 
       const r = await api(`/api/learners/${state.learner.id}/check`, { method: "POST", body: { project, step, code: cm.getValue() } });
       const box = $("[data-result]");
       if (r.passed) {
-        box.innerHTML = `<div class="check-result pass">✅ ${esc(r.message || "You did it!")}</div>`;
+        box.innerHTML = `<div class="check-result pass">${esc(r.message || "You did it!")}</div>`;
         rewards(r);
         onPassed && onPassed(r);
       } else {
         sfx("fail");
-        box.innerHTML = `<div class="check-result fail">🤔 Not yet! ${esc(r.message)}
+        box.innerHTML = `<div class="check-result fail">Not yet. ${esc(r.message)}
           ${r.output ? `<details><summary class="muted">What your program printed during the test</summary><pre>${esc(r.output)}</pre></details>` : ""}
           <div class="muted" style="font-weight:600;margin-top:4px">Attempt ${r.attempts}. ${r.attempts >= 3 ? "Stuck? Open a hint — that's what they're for." : "You're close — tweak and try again!"}</div>
           ${tutor && r.attempts >= 2 ? `<button class="btn small ghost" data-askcheck style="margin-top:6px">Ask Pixel why</button>` : ""}</div>`;

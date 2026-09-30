@@ -364,6 +364,19 @@ aside.tutor header .who .faint { font-size: .74rem; }
 .hints-sec { border-top: 1px solid var(--line); padding-top: 14px; }
 .hints-sec .tip { font-size: .78rem; margin: 10px 0 0; }
 
+/* side quest siblings + next row */
+.sibling-card { padding: 14px 16px; }
+.sibling-list { display: grid; gap: 2px; }
+.sibling-list a { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; color: var(--text); text-decoration: none; font-size: .88rem; }
+.sibling-list a:hover { background: var(--bg2); }
+.sibling-list a.cur { background: var(--bg2); font-weight: 600; }
+.sibling-list .mark { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--line); flex-shrink: 0; }
+.sibling-list a.cur .mark { border-color: var(--accent); }
+.sibling-list a.done .mark { background: var(--good); border-color: var(--good); }
+.sibling-list .t { flex: 1; }
+.sibling-list .faint { font-size: .76rem; font-weight: 400; }
+.next-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
 /* editor / output panes */
 .pane { display: flex; flex-direction: column; min-height: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .pane-head { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: .76rem; color: var(--faint); background: var(--panel); border-bottom: 1px solid var(--line); min-height: 32px; }

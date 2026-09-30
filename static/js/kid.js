@@ -353,6 +353,19 @@ export async function viewCode(app, pid, sid) {
   setupHints(app, pid, sid, s.hint_count);
 }
 
+const DIFFICULTY = ["", "Easy", "Medium", "Tricky"];
+const practiceSiblings = (pr) => state.curriculum.practice.filter((x) => x.concept === pr.concept).sort((a, b) => a.difficulty - b.difficulty);
+
+// Other side quests for the same skill, so it's easy to see what's left and hop between them.
+function siblingList(pr) {
+  const sibs = practiceSiblings(pr);
+  if (sibs.length < 2) return "";
+  const done = sibs.filter((x) => isDone("_practice", x.id)).length;
+  return `<section class="card sibling-card"><div class="sec-head"><h3>More in ${esc(state.curriculum.concepts[pr.concept])}</h3><span class="faint">${done}/${sibs.length} done</span></div>
+    <div class="sibling-list">${sibs.map((x) => `<a href="#/practice/${x.id}" class="${x.id === pr.id ? "cur" : ""} ${isDone("_practice", x.id) ? "done" : ""}">
+      <span class="mark"></span><span class="t">${esc(x.title)}</span><span class="faint">${DIFFICULTY[x.difficulty] || ""}</span></a>`).join("")}</div></section>`;
+}
+
 // One card holding the lesson, the task and the hints, so the left column reads top to bottom.
 function missionCard(title, learn, task, concepts) {
   return `<article class="card mission-card">
@@ -416,7 +429,8 @@ function showSolution(box, code) {
 async function afterPass(app, p, s, r) {
   app.querySelector(".step-track a.cur")?.classList.add("done");
   await refreshState();
-  const nextBtn = r.next ? `<a class="btn primary big" href="#/code/${r.next.project}/${r.next.step}" data-close>Next mission ▶</a>` : "";
+  const nextStep = r.next ? p.steps.find((x) => x.id === r.next.step) : null;
+  const nextBtn = r.next ? `<a class="btn primary small" href="#/code/${r.next.project}/${r.next.step}">Next: ${esc(nextStep?.title || "next mission")}</a>` : "";
   if (r.project_complete) {
     setTimeout(() => {
       celebrate(3);
@@ -427,7 +441,8 @@ async function afterPass(app, p, s, r) {
     }, 700);
   } else if (r.rewards?.xp) {
     const box = app.querySelector("[data-result]");
-    box.insertAdjacentHTML("beforeend", `<div class="row" style="margin-top:8px">${nextBtn}${s.id === "boss" ? `<a class="btn" href="#/project/${p.id}">Back to project</a>` : ""}</div>`);
+    box.insertAdjacentHTML("beforeend", `<div class="next-row">${nextBtn}${s.id === "boss" ? `<a class="btn primary small" href="#/project/${p.id}">Back to project</a>` : ""}
+      <a class="btn ghost small" href="#/project/${p.id}">Project overview</a></div>`);
   }
 }
 
@@ -473,14 +488,24 @@ export async function viewPractice(app, id) {
     app.innerHTML = `<div class="workspace"><aside class="mission">
       <div class="mission-top">
         <div class="crumbs"><a href="#/practice">Side Quests</a><span>/</span>${esc(state.curriculum.concepts[pr.concept])}</div>
-        <div class="eyebrow">Side quest · ${["", "Easy", "Medium", "Tricky"][pr.difficulty] || ""} · +${pr.xp} XP</div>
+        <div class="eyebrow">Side quest · ${DIFFICULTY[pr.difficulty] || ""} · +${pr.xp} XP</div>
       </div>
       ${missionCard(pr.title, "", pr.task, [pr.concept])}
+      ${siblingList(pr)}
     </aside><section data-ws></section></div>`;
     disposeWorkspace();
     currentWs = createWorkspace(app.querySelector("[data-ws]"), {
       project: "_practice", step: id, mode: "practice",
-      onPassed: async () => { await refreshState(); app.querySelector("[data-result]").insertAdjacentHTML("beforeend", `<p><a class="btn primary" href="#/practice">More side quests</a> <a class="btn" href="#/home">Home</a></p>`); },
+      onPassed: async () => {
+        await refreshState();
+        app.querySelector(".sibling-list a.cur")?.classList.add("done");
+        const sibs = practiceSiblings(pr), cnt = app.querySelector(".sibling-card .sec-head .faint");
+        if (cnt) cnt.textContent = `${sibs.filter((x) => isDone("_practice", x.id)).length}/${sibs.length} done`;
+        const next = practiceSiblings(pr).find((x) => x.id !== pr.id && !isDone("_practice", x.id));
+        app.querySelector("[data-result]").insertAdjacentHTML("beforeend", `<div class="next-row">
+          ${next ? `<a class="btn primary small" href="#/practice/${next.id}">Next: ${esc(next.title)}</a>` : ""}
+          <a class="btn ${next ? "ghost" : "primary"} small" href="#/practice">All side quests</a></div>`);
+      },
     });
     setupHints(app, "_practice", id, pr.hint_count);
     return;
