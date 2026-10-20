@@ -80,6 +80,41 @@ It is **off by default**. When on, his questions, code and program output are se
 
 **Demo mode:** run `PYQUEST_TUTOR_FAKE=1 ./run.sh` to try the UI with canned replies (no key, no cost).
 
+## 📧 Daily progress email
+
+Each day a learner does something in PyQuest, a summary of their day is emailed to a list of parents. It covers:
+- coding time and sessions
+- missions and side quests passed, XP, badges and ideas
+- programs run, bugs fixed, hints and questions to Pixel
+- overall progress, what's up next, and the top coaching notes
+
+**When it's sent:**
+- At a time you choose (default **8:30 PM**), only for learners who were active that day. Each day is sent once.
+- If PyQuest wasn't running at that time, the report is sent the next time it starts.
+
+**Recipients:** `him6ul@gmail.com` by default. Add or change addresses in **Parent Zone → Settings → Daily email report**, one per line or separated by commas. You can also turn reports off, change the time, preview today's report, send it now, or send a test email there. The recent-emails table shows each delivery's status.
+
+**Setting up sending.** Mail goes out through an SMTP account. Until you configure one, reports are saved as `.eml` files in `data/outbox/` instead, so nothing is lost. For Gmail:
+
+1. Turn on 2-Step Verification for the Google account that will send the mail.
+2. Create an App Password at https://myaccount.google.com/apppasswords.
+3. Start PyQuest with:
+
+   ```bash
+   PYQUEST_SMTP_HOST=smtp.gmail.com PYQUEST_SMTP_USER=you@gmail.com PYQUEST_SMTP_PASSWORD="your app password" ./run.sh
+   ```
+
+| Variable | Meaning |
+|---|---|
+| `PYQUEST_SMTP_HOST` | Mail server, e.g. `smtp.gmail.com` |
+| `PYQUEST_SMTP_PORT` | `587` (STARTTLS, default) or `465` (SSL) |
+| `PYQUEST_SMTP_USER` / `PYQUEST_SMTP_PASSWORD` | Login. For Gmail, use the App Password. |
+| `PYQUEST_SMTP_FROM` | Optional "From" address (defaults to the user) |
+
+The password is only read from the environment. It is never stored in the database or shown in the app. On Windows PowerShell, set each variable first, e.g. `$env:PYQUEST_SMTP_HOST="smtp.gmail.com"`, then start uvicorn.
+
+The reports contain your child's name and progress, so only add addresses you trust. Every send, failure, test and settings change is in the audit log.
+
 ## What gets tracked & analysed
 
 | Signal | How |
@@ -128,6 +163,7 @@ app/
   gamification.py    XP, levels, streaks, badges
   observability.py   audit log, metrics, error capture, monitoring & data catalog
   tutor.py           Pixel the AI tutor (Claude API): chat hints, code review, guardrails, usage analytics
+  notify.py          daily progress emails: summary, rendering, SMTP/outbox delivery, scheduler
   curriculum/        week1.py … week6.py  (projects, missions, checks, side quests) + CONTENT_SPEC.md
   sandbox/
     kidlive.py       runs a program in a subprocess, streams JSON (output, input requests, turtle events)

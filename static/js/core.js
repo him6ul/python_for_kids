@@ -61,7 +61,9 @@ export function xpToast(xp, title, detail = "") {
 
 export function modal(html, { wide = false, onClose } = {}) {
   const root = document.getElementById("modal-root");
-  const bg = el(`<div class="modal-bg"><div class="modal ${wide ? "wide" : ""}">${html}</div></div>`);
+  // pop-ups opened from the Parent Zone use its colours, not the learner's theme
+  const zone = document.body.classList.contains("parent-mode") ? "p-tokens" : "";
+  const bg = el(`<div class="modal-bg ${zone}"><div class="modal ${wide ? "wide" : ""}">${html}</div></div>`);
   const close = () => { bg.remove(); onClose && onClose(); };
   bg.addEventListener("click", (e) => { if (e.target === bg) close(); });
   bg.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", close));

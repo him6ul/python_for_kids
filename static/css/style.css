@@ -615,14 +615,14 @@ a.continue-card:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(
 
 /* ============ Parent zone: same calm system (Paper when light, Midnight when dark) ============ */
 /* Chart series keep the validated categorical palette so data stays distinguishable. */
-.parent { --p-bg: #f4f3ef; --p-surface: #fbfaf8; --p-surface2: #efeee9; --p-line: #dcdad3; --p-text: #2b2d31; --p-text2: #5d6169; --p-muted: #8b8e95; --p-accent: #4f6fa8; --p-accent-ink: #ffffff; --p-good: #2f6b4e; --p-warn: #7a5a1c; --p-bad: #8a3b3b; --p-danger: #a95c5c; --p-ref: #c9c6bc;
+.parent, .p-tokens { --p-bg: #f4f3ef; --p-surface: #fbfaf8; --p-surface2: #efeee9; --p-line: #dcdad3; --p-text: #2b2d31; --p-text2: #5d6169; --p-muted: #8b8e95; --p-accent: #4f6fa8; --p-accent-ink: #ffffff; --p-good: #2f6b4e; --p-warn: #7a5a1c; --p-bad: #8a3b3b; --p-danger: #a95c5c; --p-ref: #c9c6bc;
   --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; --series-5: #e87ba4; --series-6: #008300; --series-7: #4a3aa7; --series-8: #e34948;
   color-scheme: light; }
 @media (prefers-color-scheme: dark) {
-  :root:where(:not([data-ptheme="light"])) .parent { --p-bg: #15171c; --p-surface: #1f2229; --p-surface2: #272b33; --p-line: #30343d; --p-text: #e4e6eb; --p-text2: #a1a7b3; --p-muted: #767c89; --p-accent: #7f9fd8; --p-accent-ink: #0f1522; --p-good: #a9d6bd; --p-warn: #e3cc98; --p-bad: #e6b1b1; --p-danger: #b86a6a; --p-ref: #4a4f59;
+  :root:where(:not([data-ptheme="light"])) .parent, :root:where(:not([data-ptheme="light"])) .p-tokens { --p-bg: #15171c; --p-surface: #1f2229; --p-surface2: #272b33; --p-line: #30343d; --p-text: #e4e6eb; --p-text2: #a1a7b3; --p-muted: #767c89; --p-accent: #7f9fd8; --p-accent-ink: #0f1522; --p-good: #a9d6bd; --p-warn: #e3cc98; --p-bad: #e6b1b1; --p-danger: #b86a6a; --p-ref: #4a4f59;
     --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767; color-scheme: dark; }
 }
-:root[data-ptheme="dark"] .parent { --p-bg: #15171c; --p-surface: #1f2229; --p-surface2: #272b33; --p-line: #30343d; --p-text: #e4e6eb; --p-text2: #a1a7b3; --p-muted: #767c89; --p-accent: #7f9fd8; --p-accent-ink: #0f1522; --p-good: #a9d6bd; --p-warn: #e3cc98; --p-bad: #e6b1b1; --p-danger: #b86a6a; --p-ref: #4a4f59;
+:root[data-ptheme="dark"] .parent, :root[data-ptheme="dark"] .p-tokens { --p-bg: #15171c; --p-surface: #1f2229; --p-surface2: #272b33; --p-line: #30343d; --p-text: #e4e6eb; --p-text2: #a1a7b3; --p-muted: #767c89; --p-accent: #7f9fd8; --p-accent-ink: #0f1522; --p-good: #a9d6bd; --p-warn: #e3cc98; --p-bad: #e6b1b1; --p-danger: #b86a6a; --p-ref: #4a4f59;
     --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767; color-scheme: dark; }
 body.parent-mode { background: #f4f3ef; }
 @media (prefers-color-scheme: dark) { :root:where(:not([data-ptheme="light"])) body.parent-mode { background: #15171c; } }
@@ -698,6 +698,15 @@ td.details .kv .k { color: var(--p-muted); }
 .s-field > span { font-size: .8rem; color: var(--p-text2); }
 .s-inline { display: flex; gap: 8px; align-items: flex-end; }
 .s-inline .s-field { flex: 1; }
+.s-check { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: .9rem; }
+.settings-card textarea { width: 100%; font-family: var(--font-code); font-size: .85rem; }
+.parent .note code { word-break: break-all; }
+.modal.wide:has(.email-frame) { max-width: 680px; }
+.p-tokens .modal { background: var(--p-surface); color: var(--p-text); border-color: var(--p-line); font-family: var(--font-body); }
+.p-tokens .eyebrow { color: var(--p-muted); }
+.p-tokens .btn { background: var(--p-surface); color: var(--p-text); border-color: var(--p-line); }
+.p-tokens .btn.primary { background: var(--p-accent); color: var(--p-accent-ink); border-color: transparent; }
+.email-frame { width: 100%; height: 62vh; border: 1px solid var(--p-line, var(--line)); border-radius: 10px; background: #f4f3ef; }
 .danger-zone { border-top: 1px solid var(--p-line); padding-top: 14px; margin-top: 6px; display: grid; gap: 8px; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .82rem; color: var(--p-text2); }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }

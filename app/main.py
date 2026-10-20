@@ -17,7 +17,7 @@ from fastapi import Body, Depends, FastAPI, HTTPException, Request, WebSocket, W
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import analysis, analytics, db, gamification, tutor
+from . import analysis, analytics, db, gamification, notify, tutor
 from . import observability as obs
 from .curriculum import BY_ID, PRACTICE, PRACTICE_BY_ID, PROJECTS
 from .curriculum import step as find_step
@@ -33,6 +33,7 @@ CHECK_TIMEOUT_SEC = 10
 app = FastAPI(title="PyQuest")
 db.init()
 tutor.init()
+notify.init()
 obs.audit("system", "server.start", details={"python": sys.version.split()[0], "pid": os.getpid()})
 
 
@@ -827,7 +828,8 @@ def parent_delete_learner(lid: int, request: Request, _=Depends(parent_required)
     learner = _learner(lid)
     with db.tx() as c:
         for t in ("step_progress", "code_saves", "snapshots", "runs", "checks", "hints", "time_log",
-                  "learning_sessions", "ideas", "remixes", "reflections", "xp_log", "badges", "tutor_messages"):
+                  "learning_sessions", "ideas", "remixes", "reflections", "xp_log", "badges", "tutor_messages",
+                  "email_log"):
             c.execute(f"DELETE FROM {t} WHERE learner_id=?", (lid,))
         c.execute("DELETE FROM learners WHERE id=?", (lid,))
     obs.audit("parent", "learner.delete", "learner", lid, {"name": learner["name"]}, request)
@@ -915,6 +917,58 @@ async def parent_tutor_test(request: Request, _=Depends(parent_required)):
     return res
 
 
+# ---------------------------------------------------------------------------
+# daily email reports
+# ---------------------------------------------------------------------------
+@app.get("/api/parent/email")
+def parent_email(_=Depends(parent_required)):
+    return notify.status()
+
+
+@app.post("/api/parent/email/settings")
+def parent_email_settings(request: Request, body: dict = Body(...), _=Depends(parent_required)):
+    before = notify.settings()
+    try:
+        after = notify.save_settings(body)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    obs.audit("parent", "email.settings", details={"before": before, "after": after}, request=request)
+    return notify.status()
+
+
+def _day_param(day):
+    try:
+        return dt.date.fromisoformat(day) if day else dt.date.today()
+    except ValueError:
+        raise HTTPException(400, "day must look like 2026-10-20")
+
+
+@app.get("/api/parent/email/preview/{lid}")
+def parent_email_preview(lid: int, day: str = None, _=Depends(parent_required)):
+    learner = _learner(lid)
+    d = _day_param(day)
+    summary = notify.day_summary(lid, d)
+    subject, text, html_body = notify.render(learner, summary)
+    return {"subject": subject, "text": text, "html": html_body, "active": notify.was_active(summary),
+            "already_sent": notify.already_sent(lid, d.isoformat())}
+
+
+@app.post("/api/parent/email/send/{lid}")
+async def parent_email_send(lid: int, request: Request, body: dict = Body(default={}), _=Depends(parent_required)):
+    _learner(lid)
+    d = _day_param(body.get("day"))
+    res = await asyncio.to_thread(notify.send_daily, lid, d, True, None, "manual")
+    obs.audit("parent", "email.send_now", "learner", lid, {"day": d.isoformat(), "status": res.get("status")}, request)
+    return res
+
+
+@app.post("/api/parent/email/test")
+async def parent_email_test(request: Request, _=Depends(parent_required)):
+    res = await asyncio.to_thread(notify.send_test)
+    obs.audit("parent", "email.test", details={"status": res.get("status"), "error": res.get("error")}, request=request)
+    return res
+
+
 @app.get("/api/health")
 def health():
     try:
@@ -926,8 +980,14 @@ def health():
             "projects": len(PROJECTS), "practice": len(PRACTICE), "active_runs": _active_runs}
 
 
+@app.on_event("startup")
+def _startup():
+    notify.start_scheduler()
+
+
 @app.on_event("shutdown")
 def _shutdown():
+    notify.stop_scheduler()
     obs.flush()
     obs.audit("system", "server.stop")
 

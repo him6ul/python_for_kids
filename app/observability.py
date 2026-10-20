@@ -227,6 +227,7 @@ def data_overview():
         "metrics_minute": "Per-minute system metrics (HTTP, runner, checker)",
         "app_errors": "Server-side exceptions",
         "settings": "App settings (parent PIN hash, preferences, AI tutor settings)",
+        "email_log": "Daily progress emails: when, which learner and day, recipients, subject and delivery status",
         "tutor_messages": "AI tutor conversations and code reviews, with question type, concept, mood, tokens and latency",
     }
     tables = []

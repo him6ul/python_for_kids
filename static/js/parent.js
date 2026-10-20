@@ -1,6 +1,6 @@
 // Parent Zone: learning analytics, coaching guide, audit log, monitoring and data management.
 import { fmt } from "./tutor.js";
-import { api, chartDefaults, esc, fmtMin, fmtTime, makeChart, seriesColors, setContext, state, toast } from "./core.js";
+import { api, chartDefaults, esc, fmtMin, fmtTime, makeChart, modal, seriesColors, setContext, state, toast } from "./core.js";
 
 const TABS = [["overview", "Overview"], ["learning", "Learning"], ["projects", "Projects & time"], ["guide", "Coaching"], ["tutor", "AI tutor"],
   ["timeline", "Timeline"], ["audit", "Audit log"], ["monitoring", "Monitoring"], ["data", "Data"], ["settings", "Settings"]];
@@ -507,6 +507,65 @@ async function browse(host, table, offset) {
   host.scrollIntoView({ behavior: "smooth" });
 }
 
+// Daily progress email: recipients, send time, SMTP status, preview / send now / test, and recent deliveries.
+async function emailSettings(host, learner) {
+  const st = await api("/api/parent/email");
+  const statusPill = (x) => `<span class="pill ${x === "sent" ? "good" : x === "failed" ? "bad" : x === "saved" ? "warn" : ""}">${esc(x)}</span>`;
+  const smtp = st.smtp.configured
+    ? `<div class="note"><b>Sending through ${esc(st.smtp.host)}:${st.smtp.port}</b><span class="muted">From ${esc(st.smtp.from)}.</span></div>`
+    : `<div class="note warn"><b>Email sending isn't set up yet</b><span class="muted">Reports are being saved as .eml files in <code>${esc(st.outbox)}</code> instead of sent.
+        To send real email, start PyQuest with your mail server details, for Gmail:
+        <code>PYQUEST_SMTP_HOST=smtp.gmail.com PYQUEST_SMTP_USER=you@gmail.com PYQUEST_SMTP_PASSWORD=&lt;app password&gt; ./run.sh</code>
+        (see the README for creating a Gmail App Password).</span></div>`;
+  host.innerHTML = `<section class="card settings-card"><h3>Daily email report</h3>
+    <p class="muted small">Each day a learner does something in PyQuest, a summary of their day (time, missions passed, XP, badges, bugs fixed and overall progress) is emailed to everyone below at the time you choose. If the app wasn't running then, it's sent the next time PyQuest starts.</p>
+    <label class="s-check"><input type="checkbox" id="em-on" ${st.enabled ? "checked" : ""}> Send daily reports</label>
+    <div class="grid g2" style="gap:12px">
+      <label class="s-field"><span>Send to (one address per line, or separated by commas)</span>
+        <textarea id="em-to" rows="3" spellcheck="false">${esc(st.recipients.join("\n"))}</textarea></label>
+      <label class="s-field"><span>Send at (local time)</span><input type="time" id="em-time" value="${esc(st.send_time)}">
+        <span class="faint small">The report covers the day up to this time, so pick a time after he usually finishes coding.</span></label>
+    </div>
+    <p class="dialog-error" id="em-err"></p>
+    <div class="row"><button class="btn primary" id="em-save">Save</button>
+      ${learner ? `<button class="btn" id="em-preview">Preview today's report</button><button class="btn" id="em-send">Send today's report now</button>` : ""}
+      <button class="btn" id="em-test">Send a test email</button><span class="faint small" id="em-msg"></span></div>
+    ${smtp}
+    <h3 style="margin-top:6px">Recent emails</h3>
+    <div class="tscroll" style="max-height:280px"><table class="t"><thead><tr><th>When</th><th>Learner</th><th>Day</th><th>Kind</th><th>To</th><th>Status</th></tr></thead>
+      <tbody>${st.recent.map((r) => `<tr><td style="white-space:nowrap">${fmtTime(r.ts)}</td><td>${esc(r.name || "—")}</td><td>${esc(r.day)}</td><td>${esc(r.kind)}</td>
+        <td class="faint">${esc(r.recipients)}</td><td>${statusPill(r.status)}${r.error ? `<div class="faint small">${esc(r.error)}</div>` : ""}</td></tr>`).join("")
+        || `<tr><td colspan="6" class="faint">No emails yet.</td></tr>`}</tbody></table></div></section>`;
+  const $ = (q) => host.querySelector(q);
+  const msg = (t) => { $("#em-msg").textContent = t; };
+  $("#em-save").onclick = async () => {
+    $("#em-err").textContent = "";
+    try {
+      await api("/api/parent/email/settings", { method: "POST", body: { enabled: $("#em-on").checked, recipients: $("#em-to").value, send_time: $("#em-time").value } });
+      toast("Email settings saved"); emailSettings(host, learner);
+    } catch (e) { $("#em-err").textContent = e.message; }
+  };
+  $("#em-test").onclick = async () => {
+    msg("Sending…");
+    const r = await api("/api/parent/email/test", { method: "POST" });
+    msg(r.status === "sent" ? `Test sent to ${r.to.join(", ")}` : r.status === "saved" ? "Saved to the outbox (sending isn't set up)" : `Failed: ${r.error}`);
+    setTimeout(() => emailSettings(host, learner), 1500);
+  };
+  $("#em-send")?.addEventListener("click", async () => {
+    msg("Sending…");
+    const r = await api(`/api/parent/email/send/${learner.id}`, { method: "POST", body: {} });
+    msg(r.status === "sent" ? `Sent to ${r.to.join(", ")}` : r.status === "saved" ? "Saved to the outbox (sending isn't set up)" : `${r.status}: ${r.error || ""}`);
+    setTimeout(() => emailSettings(host, learner), 1500);
+  });
+  $("#em-preview")?.addEventListener("click", async () => {
+    const r = await api(`/api/parent/email/preview/${learner.id}`);
+    const m = modal(`<div class="dialog"><div class="dialog-head"><div><div class="eyebrow">Email preview${r.active ? "" : " · no activity yet today"}</div><h2 style="font-size:1rem">${esc(r.subject)}</h2></div></div>
+      <iframe class="email-frame" title="Email preview" sandbox="allow-same-origin"></iframe>
+      <div class="dialog-foot"><button class="btn small" data-close>Close</button></div></div>`, { wide: true });
+    m.node.querySelector("iframe").srcdoc = r.html;
+  });
+}
+
 // ---------------------------------------------------------------- settings
 async function settings(body) {
   const l = learners.find((x) => x.id === sel);
@@ -522,7 +581,9 @@ async function settings(body) {
       <label class="s-field"><span>Dashboard theme</span><select id="pt"><option value="">Follow system</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
       <h3 style="margin-top:8px">Curriculum reference</h3><p class="muted small">Every mission's reference solution and hints, for helping when he's stuck.</p>
       <select id="sol">${state.curriculum.projects.flatMap((p) => [...p.steps, p.boss].map((s) => `<option value="${p.id}/${s.id}">${p.emoji} ${esc(p.title)} — ${esc(s.title)}</option>`)).join("")}</select>
-      <button class="btn" id="showsol">Show</button><pre id="solout" class="hidden"></pre></div></div>`;
+      <button class="btn" id="showsol">Show</button><pre id="solout" class="hidden"></pre></div></div>
+    <div id="emailcard" style="margin-top:16px"></div>`;
+  emailSettings(body.querySelector("#emailcard"), l);
   body.querySelector("#save")?.addEventListener("click", async () => {
     await api(`/api/learners/${sel}`, { method: "PATCH", body: { start_date: body.querySelector("#sd").value } });
     toast("Saved"); reportCache = {};
