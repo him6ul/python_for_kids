@@ -178,6 +178,8 @@ def day_summary(learner_id, day):
         "xp_today": db.scalar("SELECT SUM(amount) FROM xp_log WHERE learner_id=? AND ts>=? AND ts<?", L),
         "badges": [{"id": x["badge_id"], "emoji": gamification.BADGES.get(x["badge_id"], ("", x["badge_id"], ""))[0],
                     "name": gamification.BADGES.get(x["badge_id"], ("", x["badge_id"], ""))[1]} for x in badges],
+        "badges_earned": db.scalar("SELECT COUNT(*) FROM badges WHERE learner_id=?", (learner_id,)),
+        "badges_total": len(gamification.BADGES),
         "level": gamification.level_for(xp_total),
         "streak": gamification.streak(learner_id)["current"],
         "overall": {"steps_done": done, "steps_total": total, "pct": round(done / total * 100) if total else 0,
@@ -227,15 +229,15 @@ def render(learner, s, app_url="http://127.0.0.1:8765"):
         t.append("")
     if s["side_quests"]:
         t.append("Side quests cleared: " + ", ".join(m["title"] for m in s["side_quests"]))
-    if s["badges"]:
-        t.append("Badges: " + ", ".join(f"{b['emoji']} {b['name']}" for b in s["badges"]))
     if s["ideas"]:
         t.append("Ideas saved: " + "; ".join(f"“{i['text'][:80]}” ({i['level']})" for i in s["ideas"]))
     t += ["", f"Programs run: {s['runs']} · crashes: {s['crashes']} · bugs fixed: {len(s['bugs_fixed'])}",
           f"Checks: {s['checks']} · hints opened: {s['hints']} · questions to Pixel: {s['tutor_questions']}", "",
           f"Overall: {s['overall']['steps_done']}/{s['overall']['steps_total']} missions ({s['overall']['pct']}%), "
           f"{s['overall']['projects_done']}/12 projects — {sched}.",
-          f"Up next: {nxt}"]
+          f"Up next: {nxt}",
+          f"Badges: {s['badges_earned']} of {s['badges_total']} earned"
+          + (" · new today: " + ", ".join(f"{b['emoji']} {b['name']}" for b in s["badges"]) if s["badges"] else "")]
     if s["notes"]:
         t += ["", "Coaching notes:"] + [f"  • {n['title']}: {n['text']}" for n in s["notes"]]
     t += ["", f"Open PyQuest: {app_url}", "", "— Sent by PyQuest. Change recipients in Parent Zone → Settings."]
@@ -254,8 +256,6 @@ def render(learner, s, app_url="http://127.0.0.1:8765"):
         f'<td style="padding:6px 0;border-top:1px solid #e6e4dd;text-align:right;color:#5d6169;font-size:13px">+{m["xp"]} XP</td></tr>'
         for m in s["missions"] + s["side_quests"])
     extras = []
-    if s["badges"]:
-        extras.append("<b>Badges:</b> " + ", ".join(e(f"{b['emoji']} {b['name']}") for b in s["badges"]))
     if s["ideas"]:
         extras.append("<b>Ideas saved:</b> " + "; ".join(e(f"“{i['text'][:90]}” ({i['level']})") for i in s["ideas"]))
     if s["remixes"]:
@@ -264,6 +264,13 @@ def render(learner, s, app_url="http://127.0.0.1:8765"):
                     f'<b style="font-weight:600">{e(n["title"])}</b><div style="color:#5d6169;font-size:13px">{e(n["text"])}</div></div>'
                     for n in s["notes"])
     pct = s["overall"]["pct"]
+    b_pct = round(s["badges_earned"] / s["badges_total"] * 100) if s["badges_total"] else 0
+    chips = "".join(f'<span style="display:inline-block;margin:6px 6px 0 0;padding:3px 9px;border-radius:99px;background:#efeee9;'
+                    f'border:1px solid #dcdad3;font-size:12px;color:#2b2d31">{e(b["emoji"])} {e(b["name"])}</span>' for b in s["badges"])
+    badges_html = (f'<h3 style="font-size:14px;margin:16px 0 6px;font-weight:600">Badges</h3>'
+                   f'<div style="background:#e6e4dd;border-radius:99px;height:8px;overflow:hidden"><div style="width:{max(b_pct, 2)}%;height:8px;background:#6f9c80"></div></div>'
+                   f'<div style="font-size:13px;color:#5d6169;margin-top:6px">{s["badges_earned"]} of {s["badges_total"]} badges earned ({b_pct}%)'
+                   f'{" · new today:" if s["badges"] else " · no new badges today"}</div>{chips}')
     body = f"""<!doctype html><html><body style="margin:0;background:#f4f3ef;font-family:-apple-system,Segoe UI,Inter,Arial,sans-serif;color:#2b2d31">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f3ef;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fbfaf8;border:1px solid #dcdad3;border-radius:12px;padding:22px">
@@ -280,6 +287,7 @@ def render(learner, s, app_url="http://127.0.0.1:8765"):
   <h3 style="font-size:14px;margin:16px 0 6px;font-weight:600">Overall progress</h3>
   <div style="background:#e6e4dd;border-radius:99px;height:8px;overflow:hidden"><div style="width:{max(pct, 2)}%;height:8px;background:#4f6fa8"></div></div>
   <div style="font-size:13px;color:#5d6169;margin-top:6px">{s['overall']['steps_done']} of {s['overall']['steps_total']} missions ({pct}%) · {s['overall']['projects_done']} of 12 projects · up next: {e(nxt)}</div>
+  {badges_html}
   {f'<h3 style="font-size:14px;margin:16px 0 4px;font-weight:600">Coaching notes</h3>{notes}' if notes else ''}
   <p style="margin:18px 0 0"><a href="{e(app_url)}" style="display:inline-block;background:#4f6fa8;color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:14px">Open PyQuest</a></p>
   <p style="font-size:11px;color:#8b8e95;margin:16px 0 0">Sent by PyQuest on your home computer. Change who gets this in Parent Zone → Settings.</p>
