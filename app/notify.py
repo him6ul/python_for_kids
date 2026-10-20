@@ -205,6 +205,16 @@ def was_active(s):
 # ---------------------------------------------------------------------------
 # rendering (plain text + simple inline-styled HTML that renders in Gmail)
 # ---------------------------------------------------------------------------
+def badge_bar(earned, total, cells=5):
+    """A tiny text progress bar for the subject line, e.g. "▰▰▱▱▱ 9/23 badges"."""
+    if not total:
+        return ""
+    filled = cells if earned >= total else int(earned / total * cells)   # only full when every badge is earned
+    if earned and not filled:
+        filled = 1                      # any badge at all shows as one filled cell
+    return "▰" * filled + "▱" * (cells - filled) + f" {earned}/{total} badges"
+
+
 def render(learner, s, app_url="http://127.0.0.1:8765"):
     day = dt.date.fromisoformat(s["day"])
     nice_day = f"{day:%A, %B} {day.day}"          # no %-d: it isn't supported on Windows
@@ -212,7 +222,7 @@ def render(learner, s, app_url="http://127.0.0.1:8765"):
     headline = f"{n_m} mission{'s' if n_m != 1 else ''} · {s['minutes']} min"
     if s["side_quests"]:
         headline += f" · {len(s['side_quests'])} side quest{'s' if len(s['side_quests']) != 1 else ''}"
-    subject = f"PyQuest · {learner['name']} · {day:%a %b} {day.day} — {headline}"
+    subject = f"PyQuest · {learner['name']} · {day:%a %b} {day.day} — {headline} · {badge_bar(s['badges_earned'], s['badges_total'])}"
     lvl = s["level"]
     nxt = f"{s['next']['project_title']} — {s['next']['step_title']}" if s["next"] else "Quest complete 🎓"
     sched = {"ahead": "ahead of the 6-week plan", "on track": "on track with the 6-week plan",
